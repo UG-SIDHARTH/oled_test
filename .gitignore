@@ -1,0 +1,13 @@
+# Secrets and Configuration
+config.h
+
+# Build artifacts
+.pio/
+build/
+*.bin
+*.elf
+*.hex
+
+# OS files
+.DS_Store
+Thumbs.db
