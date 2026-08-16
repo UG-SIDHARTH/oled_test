@@ -287,6 +287,142 @@ void DisplayManager::drawPixelDancingStickman(int centerX, int centerY, uint8_t 
             _u8g2.drawLine(centerX, bodyBottomY, centerX - 7, bodyBottomY + 11);
             _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 7, bodyBottomY + 11);
             break;
+void DisplayManager::drawMichaelJackson(int centerX, int centerY, uint8_t animStep, bool isPlaying) {
+    // 8-pose iconic Michael Jackson dance choreography
+    // Cycles smoothly every 200ms
+    uint8_t pose = isPlaying ? ((animStep / 2) % 8) : 0;
+    uint8_t bob = isPlaying ? ((animStep % 2 == 0) ? 1 : 0) : 0;
+
+    int headY = centerY - 14 + bob;
+    int headX = centerX;
+
+    // Lean displacement for Pose 2 (Smooth Criminal 45° Lean)
+    if (pose == 2) {
+        headX += 7;
+        headY += 2;
+    } else if (pose == 3) {
+        headY -= 3; // Toe stand elevation
+    }
+
+    // 1. Fedora Hat (Iconic tilted black fedora with white band)
+    _u8g2.drawHLine(headX - 8, headY - 4, 17); // Wide brim
+    _u8g2.drawBox(headX - 5, headY - 9, 11, 5); // Crown
+    _u8g2.drawLine(headX - 5, headY - 9, headX - 3, headY - 11);
+    _u8g2.drawHLine(headX - 3, headY - 11, 7);
+    _u8g2.drawLine(headX + 4, headY - 11, headX + 5, headY - 9);
+
+    // Fedora white ribbon band
+    _u8g2.setDrawColor(0);
+    _u8g2.drawHLine(headX - 5, headY - 5, 11);
+    _u8g2.setDrawColor(1);
+
+    // 2. Face & Iconic Front Hair Curl
+    _u8g2.drawDisc(headX, headY, 4);
+    // Sunglasses (black visor)
+    _u8g2.setDrawColor(0);
+    _u8g2.drawBox(headX - 3, headY - 1, 6, 2);
+    _u8g2.setDrawColor(1);
+    // Signature curly lock falling in front
+    _u8g2.drawLine(headX - 4, headY - 3, headX - 6, headY + 2);
+    _u8g2.drawPixel(headX - 5, headY + 3);
+
+    // 3. Torso / Open Suit Jacket & White V-Neck Inner Shirt
+    int bodyTopY = headY + 5;
+    int bodyBottomY = bodyTopY + 11;
+    if (pose == 3) bodyBottomY -= 2;
+
+    _u8g2.drawBox(headX - 3, bodyTopY, 7, 10);
+    // White inner shirt V-neck
+    _u8g2.setDrawColor(0);
+    _u8g2.drawTriangle(headX - 1, bodyTopY, headX + 1, bodyTopY, headX, bodyTopY + 4);
+    _u8g2.setDrawColor(1);
+
+    // 4. Iconic Dance Moves (8 Signature Moves):
+    if (!isPlaying) {
+        // Idle Stand: Fedora hat tip pose
+        _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 7, headY - 3); // Hand touching brim
+        _u8g2.drawDisc(headX + 7, headY - 3, 2); // Sparkle glove
+        _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 6, bodyBottomY - 1);
+        _u8g2.drawLine(headX, bodyBottomY, headX - 4, bodyBottomY + 11);
+        _u8g2.drawLine(headX, bodyBottomY, headX + 4, bodyBottomY + 11);
+        return;
+    }
+
+    switch (pose) {
+        case 0: // Move 0: The Moonwalk (Glide Slide Left)
+            _u8g2.drawLine(headX, bodyBottomY, headX - 5, bodyBottomY + 11);
+            _u8g2.drawPixel(headX - 5, bodyBottomY + 12);
+            _u8g2.drawLine(headX, bodyBottomY, headX + 8, bodyBottomY + 11);
+            _u8g2.drawHLine(headX + 6, bodyBottomY + 11, 5); // Flat slide shoe
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 9, bodyTopY + 6);
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 7, headY - 3);
+            _u8g2.drawDisc(headX + 7, headY - 3, 2); // Sparkle glove
+            break;
+
+        case 1: // Move 1: The Moonwalk (Glide Slide Right)
+            _u8g2.drawLine(headX, bodyBottomY, headX + 5, bodyBottomY + 11);
+            _u8g2.drawPixel(headX + 5, bodyBottomY + 12);
+            _u8g2.drawLine(headX, bodyBottomY, headX - 8, bodyBottomY + 11);
+            _u8g2.drawHLine(headX - 10, bodyBottomY + 11, 5);
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 9, bodyTopY + 6);
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 7, headY - 3);
+            break;
+
+        case 2: // Move 2: The 45° Anti-Gravity Lean (Smooth Criminal!)
+            _u8g2.drawLine(headX - 4, bodyBottomY, centerX - 6, bodyBottomY + 11);
+            _u8g2.drawLine(headX - 2, bodyBottomY, centerX - 3, bodyBottomY + 11);
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 6, bodyBottomY - 1);
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 5, bodyBottomY - 1);
+            _u8g2.drawDisc(headX + 5, bodyBottomY - 1, 2); // Sparkle glove
+            break;
+
+        case 3: // Move 3: The Iconic Toe Stand (King of Pop!)
+            _u8g2.drawLine(headX, bodyBottomY, headX - 3, bodyBottomY + 12);
+            _u8g2.drawLine(headX, bodyBottomY, headX + 3, bodyBottomY + 12);
+            _u8g2.drawPixel(headX - 3, bodyBottomY + 13);
+            _u8g2.drawPixel(headX + 3, bodyBottomY + 13);
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 11, bodyTopY + 6);
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 11, bodyTopY + 6);
+            _u8g2.drawDisc(headX + 11, bodyTopY + 6, 2);
+            _u8g2.drawPixel(headX + 13, bodyTopY + 4); // Sparkle ✨
+            break;
+
+        case 4: // Move 4: The Fedora Brim Snap (Billie Jean)
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX - 2, headY - 4);
+            _u8g2.drawDisc(headX - 2, headY - 4, 2); // Sparkle glove on hat
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 8, bodyBottomY + 2);
+            _u8g2.drawLine(headX, bodyBottomY, headX - 6, bodyBottomY + 11);
+            _u8g2.drawLine(headX, bodyBottomY, headX + 6, bodyBottomY + 11);
+            break;
+
+        case 5: // Move 5: The High Snap Kick (Beat It / Bad)
+            _u8g2.drawLine(headX, bodyBottomY, headX + 14, bodyBottomY - 3); // High 90° kick
+            _u8g2.drawLine(headX, bodyBottomY, headX - 4, bodyBottomY + 11); // Standing leg
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 10, bodyTopY - 3);
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 10, bodyTopY + 6);
+            _u8g2.drawDisc(headX + 10, bodyTopY + 6, 2);
+            break;
+
+        case 6: // Move 6: Thriller Zombie Claw Step
+            _u8g2.drawLine(headX, bodyTopY + 2, headX + 9, bodyTopY + 1);
+            _u8g2.drawLine(headX + 9, bodyTopY + 1, headX + 11, bodyTopY + 4);
+            _u8g2.drawLine(headX, bodyTopY + 5, headX + 7, bodyTopY + 5);
+            _u8g2.drawLine(headX + 7, bodyTopY + 5, headX + 9, bodyTopY + 8);
+            _u8g2.drawDisc(headX + 11, bodyTopY + 4, 2);
+            _u8g2.drawLine(headX, bodyBottomY, headX - 8, bodyBottomY + 9);
+            _u8g2.drawLine(headX, bodyBottomY, headX + 4, bodyBottomY + 11);
+            break;
+
+        case 7: // Move 7: The Iconic Freeze Pose (Hee-Hee / Shamone!)
+            _u8g2.drawLine(headX + 3, bodyTopY + 2, headX + 12, headY - 10);
+            _u8g2.drawDisc(headX + 12, headY - 10, 2); // Sparkle Glove ✨
+            _u8g2.drawPixel(headX + 10, headY - 12);
+            _u8g2.drawPixel(headX + 14, headY - 8);
+            _u8g2.drawPixel(headX + 12, headY - 13);
+            _u8g2.drawLine(headX - 3, bodyTopY + 2, headX - 6, bodyBottomY + 1);
+            _u8g2.drawLine(headX, bodyBottomY, headX - 6, bodyBottomY + 11);
+            _u8g2.drawLine(headX, bodyBottomY, headX + 6, bodyBottomY + 11);
+            break;
     }
 }
 
@@ -382,11 +518,11 @@ void DisplayManager::renderPlayer(
     _u8g2.drawHLine(0, 10, SCREEN_WIDTH);
 
     // ========================================================================
-    // 2. CENTER SECTION: Cute Pixel Dancing Stickman + Floating Notes (y = 11..50)
+    // 2. CENTER SECTION: Michael Jackson Dance Animation + Floating Notes (y = 11..50)
     // ========================================================================
-    drawPixelDancingStickman(64, 30, _animFrame, isPlaying);
-    updateAndDrawFloatingNotes(14, 36, 12, 46, isPlaying);
-    updateAndDrawFloatingNotes(92, 114, 12, 46, isPlaying);
+    drawMichaelJackson(64, 30, _animFrame, isPlaying);
+    updateAndDrawFloatingNotes(12, 34, 12, 46, isPlaying);
+    updateAndDrawFloatingNotes(94, 116, 12, 46, isPlaying);
 
     // ========================================================================
     // 3. BOTTOM FOOTER: Synced Karaoke Lyrics Line (y = 51..63)
