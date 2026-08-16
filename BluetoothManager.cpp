@@ -39,11 +39,27 @@ void BluetoothManager::update() {
         }
     }
 
-    // Read incoming characters from Bluetooth
+    // Read incoming characters from Bluetooth Serial
     while (_serialBT.available()) {
         char c = (char)_serialBT.read();
         if (c == '\n' || c == '\r') {
             if (_incomingLine.length() > 0) {
+                processMessage(_incomingLine);
+                _incomingLine = "";
+            }
+        } else {
+            if (_incomingLine.length() < 512) {
+                _incomingLine += c;
+            }
+        }
+    }
+
+    // Also read incoming characters from USB Serial (so PC USB cable streamer works seamlessly)
+    while (Serial.available()) {
+        char c = (char)Serial.read();
+        if (c == '\n' || c == '\r') {
+            if (_incomingLine.length() > 0) {
+                _state.connected = true; // Mark connected via USB
                 processMessage(_incomingLine);
                 _incomingLine = "";
             }
