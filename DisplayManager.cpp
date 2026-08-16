@@ -197,71 +197,95 @@ void DisplayManager::drawSpinningVinyl(int centerX, int centerY, int radius, uin
     }
 }
 
-void DisplayManager::drawDancingCharacter(int x, int y, uint8_t animStep, bool isPlaying) {
-    // x, y is top-left anchor (approx 20x34 pixels)
-    uint8_t step = isPlaying ? (animStep % 4) : 0;
-    
-    // Head position with dance bounce
-    int headY = y + 4 + (step == 1 ? 2 : (step == 3 ? -2 : 0));
-    int headX = x + 10 + (step == 0 ? -1 : (step == 2 ? 1 : 0));
-    
-    // 1. Head & Headphones
-    _u8g2.drawDisc(headX, headY, 3);
-    // Headphones cups on left/right
-    _u8g2.drawBox(headX - 4, headY - 2, 2, 4);
-    _u8g2.drawBox(headX + 3, headY - 2, 2, 4);
-    _u8g2.drawHLine(headX - 3, headY - 4, 7); // Headband
-    
-    // Sunglasses / visor
+void DisplayManager::drawPixelDancingStickman(int centerX, int centerY, uint8_t animStep, bool isPlaying) {
+    // 6-pose dance cycle (cycles smoothly every 200ms)
+    uint8_t pose = isPlaying ? ((animStep / 2) % 6) : 0;
+    uint8_t bob = isPlaying ? ((animStep % 2 == 0) ? 1 : 0) : 0;
+
+    int headY = centerY - 13 + (pose == 2 ? 4 : (pose == 3 || pose == 4 ? -1 : 0)) + bob;
+    int headX = centerX + (pose == 0 ? ((animStep % 4 < 2) ? -1 : 1) : 0);
+
+    // 1. Cute Rounded Pixel Head (11x11 rounded box)
+    _u8g2.drawRBox(headX - 6, headY - 6, 13, 12, 3);
+
+    // 2. Black Eyes (draw color 0)
     _u8g2.setDrawColor(0);
-    _u8g2.drawHLine(headX - 2, headY, 4);
+    _u8g2.drawBox(headX - 4, headY - 3, 2, 3); // Left Eye
+    _u8g2.drawBox(headX + 3, headY - 3, 2, 3); // Right Eye
+
+    // 3. Cute Black Smile
+    _u8g2.drawHLine(headX - 3, headY + 2, 7);
+    _u8g2.drawPixel(headX - 3, headY + 1);
+    _u8g2.drawPixel(headX + 3, headY + 1);
     _u8g2.setDrawColor(1);
-    
-    // 2. Torso / Shirt
-    int bodyTopY = headY + 4;
-    int bodyBottomY = bodyTopY + 8;
-    _u8g2.drawLine(headX, bodyTopY, headX, bodyBottomY);
-    _u8g2.drawBox(headX - 2, bodyTopY + 1, 5, 5); // Shirt
-    
-    // 3. Arms & Poses
+
+    // 4. Torso / Body (2px thick)
+    int bodyTopY = headY + 6;
+    int bodyBottomY = bodyTopY + 11;
+    if (pose == 2) bodyBottomY -= 2; // Squat compression
+
+    _u8g2.drawVLine(centerX, bodyTopY, bodyBottomY - bodyTopY);
+    _u8g2.drawVLine(centerX + 1, bodyTopY, bodyBottomY - bodyTopY);
+
+    // 5. Arms & Legs per Pose (Matching Reference Video):
     if (!isPlaying) {
-        // Idle chill pose (hands down)
-        _u8g2.drawLine(headX - 2, bodyTopY + 2, headX - 5, bodyBottomY);
-        _u8g2.drawLine(headX + 2, bodyTopY + 2, headX + 5, bodyBottomY);
-        _u8g2.drawLine(headX, bodyBottomY, headX - 3, bodyBottomY + 9);
-        _u8g2.drawLine(headX, bodyBottomY, headX + 3, bodyBottomY + 9);
+        // Idle standing pose
+        _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 7, bodyBottomY - 1);
+        _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 8, bodyBottomY - 1);
+        _u8g2.drawLine(centerX, bodyBottomY, centerX - 5, bodyBottomY + 11);
+        _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 6, bodyBottomY + 11);
         return;
     }
-    
-    switch (step) {
-        case 0: // Disco Point Left ☝️
-            _u8g2.drawLine(headX - 2, bodyTopY + 2, headX - 8, bodyTopY - 4); // Left arm points up
-            _u8g2.drawLine(headX + 2, bodyTopY + 2, headX + 5, bodyBottomY);     // Right arm on hip
-            _u8g2.drawLine(headX, bodyBottomY, headX - 6, bodyBottomY + 9);     // Left leg kicks out
-            _u8g2.drawLine(headX, bodyBottomY, headX + 3, bodyBottomY + 9);     // Right leg straight
+
+    switch (pose) {
+        case 0: // Pose 0: Hands on hips, hip sway & bounce
+            _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 7, bodyTopY + 6);
+            _u8g2.drawLine(centerX - 7, bodyTopY + 6, centerX - 2, bodyBottomY - 1);
+            _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 8, bodyTopY + 6);
+            _u8g2.drawLine(centerX + 8, bodyTopY + 6, centerX + 3, bodyBottomY - 1);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 5, bodyBottomY + 11);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 6, bodyBottomY + 11);
             break;
-            
-        case 1: // Groove Squat / Body Wave
-            _u8g2.drawLine(headX - 2, bodyTopY + 2, headX - 7, bodyTopY + 7);  // Left arm waving
-            _u8g2.drawLine(headX + 2, bodyTopY + 2, headX + 7, bodyTopY + 1);  // Right arm up
-            _u8g2.drawLine(headX, bodyBottomY, headX - 5, bodyBottomY + 7);     // Wide stance left
-            _u8g2.drawLine(headX, bodyBottomY, headX + 5, bodyBottomY + 7);     // Wide stance right
+
+        case 1: // Pose 1: Wavy Arms Up (Groove shaking)
+            _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 6, bodyTopY + 5);
+            _u8g2.drawLine(centerX - 6, bodyTopY + 5, centerX - 10, bodyTopY - 3);
+            _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 7, bodyTopY + 5);
+            _u8g2.drawLine(centerX + 7, bodyTopY + 5, centerX + 11, bodyTopY - 3);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 4, bodyBottomY + 11);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 8, bodyBottomY + 10);
             break;
-            
-        case 2: // Disco Point Right ☝️
-            _u8g2.drawLine(headX + 2, bodyTopY + 2, headX + 8, bodyTopY - 4); // Right arm points up
-            _u8g2.drawLine(headX - 2, bodyTopY + 2, headX - 5, bodyBottomY);     // Left arm on hip
-            _u8g2.drawLine(headX, bodyBottomY, headX + 6, bodyBottomY + 9);     // Right leg kicks out
-            _u8g2.drawLine(headX, bodyBottomY, headX - 3, bodyBottomY + 9);     // Left leg straight
+
+        case 2: // Pose 2: Groove Squat (Low dip, hands on knees, wide stance)
+            _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 9, bodyTopY + 5);
+            _u8g2.drawLine(centerX - 9, bodyTopY + 5, centerX - 5, bodyBottomY + 3);
+            _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 10, bodyTopY + 5);
+            _u8g2.drawLine(centerX + 10, bodyTopY + 5, centerX + 6, bodyBottomY + 3);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 9, bodyBottomY + 4);
+            _u8g2.drawLine(centerX - 9, bodyBottomY + 4, centerX - 7, bodyBottomY + 7);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 10, bodyBottomY + 4);
+            _u8g2.drawLine(centerX + 10, bodyBottomY + 4, centerX + 8, bodyBottomY + 7);
             break;
-            
-        case 3: // Double Pump / Hands Up 🙌
-            _u8g2.drawLine(headX - 2, bodyTopY + 2, headX - 7, bodyTopY - 4);  // Left hand up
-            _u8g2.drawLine(headX + 2, bodyTopY + 2, headX + 7, bodyTopY - 4);  // Right hand up
-            _u8g2.drawLine(headX, bodyBottomY, headX - 4, bodyBottomY + 6);     // Jump tuck left
-            _u8g2.drawLine(headX, bodyBottomY, headX + 4, bodyBottomY + 6);     // Jump tuck right
-            _u8g2.drawPixel(headX - 8, bodyTopY - 6); // Sparkle note
-            _u8g2.drawPixel(headX + 8, bodyTopY - 6);
+
+        case 3: // Pose 3: Disco Point Right ☝️ (Pointing high to the sky)
+            _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 15, bodyTopY - 7);
+            _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 8, bodyBottomY + 2);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 8, bodyBottomY + 11);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 4, bodyBottomY + 11);
+            break;
+
+        case 4: // Pose 4: Disco Point Left ☝️
+            _u8g2.drawLine(centerX, bodyTopY + 2, centerX - 15, bodyTopY - 7);
+            _u8g2.drawLine(centerX + 1, bodyTopY + 2, centerX + 8, bodyBottomY + 2);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 4, bodyBottomY + 11);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 8, bodyBottomY + 11);
+            break;
+
+        case 5: // Pose 5: Outstretched Open Arms Groove
+            _u8g2.drawLine(centerX, bodyTopY + 3, centerX - 13, bodyTopY + 3);
+            _u8g2.drawLine(centerX + 1, bodyTopY + 3, centerX + 14, bodyTopY + 3);
+            _u8g2.drawLine(centerX, bodyBottomY, centerX - 7, bodyBottomY + 11);
+            _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 7, bodyBottomY + 11);
             break;
     }
 }
@@ -321,23 +345,8 @@ void DisplayManager::renderPlayer(
     _u8g2.setDrawColor(1);
 
     // ========================================================================
-    // 1. TOP HEADER: Mini Equalizer + Song Title Marquee (y = 0..11)
+    // 1. TOP HEADER: Song Name & Artist Marquee (y = 0..10)
     // ========================================================================
-    // Mini 3-bar animated audio badge on the left (8px wide)
-    if (isPlaying) {
-        int b1 = (int)(sin(now * 0.010f) * 3.0f + 4.0f);
-        int b2 = (int)(cos(now * 0.013f) * 3.5f + 4.5f);
-        int b3 = (int)(sin(now * 0.008f) * 3.0f + 4.0f);
-        _u8g2.drawBox(0, 9 - constrain(b1, 1, 8), 2, constrain(b1, 1, 8));
-        _u8g2.drawBox(3, 9 - constrain(b2, 1, 8), 2, constrain(b2, 1, 8));
-        _u8g2.drawBox(6, 9 - constrain(b3, 1, 8), 2, constrain(b3, 1, 8));
-    } else {
-        _u8g2.drawBox(0, 7, 2, 2);
-        _u8g2.drawBox(3, 7, 2, 2);
-        _u8g2.drawBox(6, 7, 2, 2);
-    }
-
-    // Build header text: "Track Name - Artist Name"
     String fullTitle = trackName;
     if (artistName.length() > 0) {
         fullTitle += " - " + artistName;
@@ -349,113 +358,74 @@ void DisplayManager::renderPlayer(
         _lastHeaderScrollMs = now;
     }
 
-    _u8g2.setCursor(11, 0);
-
-    // Header max visible characters: ~19 chars at 6px each
-    if (fullTitle.length() > 19) {
+    // Header text display
+    _u8g2.setCursor(0, 0);
+    if (fullTitle.length() > 21) {
         if (now - _lastHeaderScrollMs > 220) {
             _headerScrollOffset++;
-            if (_headerScrollOffset > (int)fullTitle.length() - 14) {
+            if (_headerScrollOffset > (int)fullTitle.length() - 16) {
                 _headerScrollOffset = 0;
             }
             _lastHeaderScrollMs = now;
         }
         _u8g2.print(fullTitle.substring(_headerScrollOffset));
     } else {
+        // Centered header
+        int tWidth = fullTitle.length() * 6;
+        int startX = (SCREEN_WIDTH - tWidth) / 2;
+        if (startX < 0) startX = 0;
+        _u8g2.setCursor(startX, 0);
         _u8g2.print(fullTitle);
     }
 
-    // Header dividing line
-    _u8g2.drawHLine(0, 11, SCREEN_WIDTH);
+    // Top dividing line
+    _u8g2.drawHLine(0, 10, SCREEN_WIDTH);
 
     // ========================================================================
-    // 2. CENTER SECTION: Synced Lyrics & Dynamic Visualizer (y = 14..50)
+    // 2. CENTER SECTION: Cute Pixel Dancing Stickman + Floating Notes (y = 11..50)
     // ========================================================================
-    bool isInstrumental = (!hasLyrics || activeLyric == "♪ ♪ ♪" || activeLyric == "..." || activeLyric.length() == 0);
-
-    if (isInstrumental) {
-        // --------------------------------------------------------------------
-        // Instrumental / Visualizer + Groovy Dancing Character Mode:
-        // Spinning Vinyl Disc + 6-Band Equalizer + Dancing Character + Notes
-        // --------------------------------------------------------------------
-        drawSpinningVinyl(16, 31, 12, _animFrame);
-        drawEqualizer(34, 18, 42, 26, isPlaying);
-        drawDancingCharacter(84, 13, _animFrame, isPlaying);
-        updateAndDrawFloatingNotes(112, 126, 14, 48, isPlaying);
-
-        // Display small badge
-        _u8g2.setCursor(38, 45);
-        if (!hasLyrics) {
-            _u8g2.print(F("[No Lyrics]"));
-        } else {
-            _u8g2.print(F("[Music ♪]"));
-        }
-    } else {
-        // --------------------------------------------------------------------
-        // Synced Lyrics + Dancing Character Mode:
-        // Highlighted Active Lyric + Next Line Preview + Dancing Character
-        // --------------------------------------------------------------------
-        if (activeLyric != _lastActiveLyric) {
-            _lastActiveLyric = activeLyric;
-            _lyricScrollOffset = 0;
-            _lastLyricScrollMs = now;
-        }
-
-        // Active Lyric Line (y = 15..28) - Leave room for dancer on right
-        _u8g2.setCursor(0, 15);
-        _u8g2.print(F("> "));
-
-        // Auto marquee scroll if active lyric > 16 chars
-        if (activeLyric.length() > 16) {
-            if (now - _lastLyricScrollMs > 200) {
-                _lyricScrollOffset++;
-                if (_lyricScrollOffset > (int)activeLyric.length() - 13) {
-                    _lyricScrollOffset = 0;
-                }
-                _lastLyricScrollMs = now;
-            }
-            _u8g2.print(activeLyric.substring(_lyricScrollOffset));
-        } else {
-            _u8g2.print(activeLyric);
-        }
-
-        // Next Lyric Preview Line (y = 28..39)
-        if (nextLyric.length() > 0) {
-            _u8g2.setCursor(4, 28);
-            _u8g2.print(F("» "));
-            if (nextLyric.length() > 15) {
-                _u8g2.print(nextLyric.substring(0, 15) + "..");
-            } else {
-                _u8g2.print(nextLyric);
-            }
-        }
-
-        // Mini visualizer spectrum bar accent on bottom left
-        drawEqualizer(0, 39, 42, 10, isPlaying);
-
-        // Groovy Dancing Character on the right!
-        drawDancingCharacter(105, 13, _animFrame, isPlaying);
-    }
+    drawPixelDancingStickman(64, 30, _animFrame, isPlaying);
+    updateAndDrawFloatingNotes(14, 36, 12, 46, isPlaying);
+    updateAndDrawFloatingNotes(92, 114, 12, 46, isPlaying);
 
     // ========================================================================
-    // 3. FOOTER: Play/Pause Icon, Sleek Progress Bar, Time Display (y = 52..63)
+    // 3. BOTTOM FOOTER: Synced Karaoke Lyrics Line (y = 51..63)
     // ========================================================================
     _u8g2.drawHLine(0, 51, SCREEN_WIDTH);
 
-    // Play / Pause Icon at (0, 54)
-    if (isPlaying) {
-        _u8g2.drawTriangle(1, 54, 1, 62, 7, 58);
-    } else {
-        _u8g2.drawBox(1, 54, 2, 8);
-        _u8g2.drawBox(5, 54, 2, 8);
+    String lyricText = activeLyric;
+    if (lyricText.length() == 0) {
+        if (isPlaying) {
+            lyricText = "♪ Moving to the byte beat! ♪";
+        } else {
+            lyricText = "Paused ⏸";
+        }
     }
 
-    // Progress Bar (x=12, y=56, width=64, height=5)
-    drawProgressBar(12, 56, 64, 5, progressMs, durationMs);
+    if (lyricText != _lastActiveLyric) {
+        _lastActiveLyric = lyricText;
+        _lyricScrollOffset = 0;
+        _lastLyricScrollMs = now;
+    }
 
-    // Time Elapsed: e.g. "02:45"
-    _u8g2.setCursor(80, 54);
-    _u8g2.print(formatTime(progressMs));
+    _u8g2.setCursor(0, 53);
+    if (lyricText.length() > 21) {
+        if (now - _lastLyricScrollMs > 200) {
+            _lyricScrollOffset++;
+            if (_lyricScrollOffset > (int)lyricText.length() - 17) {
+                _lyricScrollOffset = 0;
+            }
+            _lastLyricScrollMs = now;
+        }
+        _u8g2.print(lyricText.substring(_lyricScrollOffset));
+    } else {
+        // Centered text
+        int textWidth = lyricText.length() * 6;
+        int startX = (SCREEN_WIDTH - textWidth) / 2;
+        if (startX < 0) startX = 0;
+        _u8g2.setCursor(startX, 53);
+        _u8g2.print(lyricText);
+    }
 
     _u8g2.sendBuffer();
 }
