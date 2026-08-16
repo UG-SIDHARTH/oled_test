@@ -1,6 +1,6 @@
 /*
  * ============================================================================
- * ESP32 Spotify Synced Lyrics & Dynamic Animations on SSD1306 OLED
+ * ESP32 Spotify OLED Music Player & Animations (100% OFFLINE / ZERO WIFI)
  * Project: oled_test
  * ============================================================================
  * 
@@ -14,26 +14,30 @@
  *   - OLED VCC -> 3.3V / 5V
  *   - OLED GND -> GND
  * 
- * Modes:
- *   - 🌟 LAST.FM AUTO-SYNC: 100% Automatic sync from official Spotify App (Free & Premium on iPhone/Android/PC)
- *   - 📱 BLUETOOTH MODE: Direct Bluetooth Serial receiver
- *   - ⚡ DEMO MODE: Offline animation and synced lyrics preview
+ * Features:
+ *   - 📱 100% OFFLINE BLUETOOTH MODE: Zero WiFi needed!
+ *   - 📊 6-Band Spectrum Visualizer: Peak-hold decay animation
+ *   - 💿 Spinning Vinyl Record & Tonearm
+ *   - 🎵 Floating Musical Notes (♪ ♫)
+ *   - 📜 Smart Marquee Scrolling song titles & artist names
+ *   - ⏱️ Live Progress Bar & Elapsed Timer
  * ============================================================================
  */
 
-#include <WiFi.h>
 #include "config.h"
 #include "SpotifyClient.h"
 #include "LyricsClient.h"
 #include "DisplayManager.h"
 
-#if USE_LASTFM_AUTO_SYNC
-#include "LastFmClient.h"
-LastFmClient lastfm(LASTFM_API_KEY, LASTFM_USERNAME);
-#elif USE_BLUETOOTH_MODE
+#if USE_BLUETOOTH_MODE
 #include "BluetoothManager.h"
 BluetoothManager btManager;
+#elif USE_LASTFM_AUTO_SYNC
+#include <WiFi.h>
+#include "LastFmClient.h"
+LastFmClient lastfm(LASTFM_API_KEY, LASTFM_USERNAME);
 #elif !DEMO_MODE
+#include <WiFi.h>
 SpotifyClient spotify(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN);
 #endif
 
@@ -78,42 +82,11 @@ const char* DEMO_LRC =
 uint32_t demoStartTimeMs = 0;
 #endif
 
-uint32_t lastWiFiRetryMs = 0;
-
-void connectWiFi() {
-    Serial.printf("\n[WiFi] Connecting to '%s'...\n", WIFI_SSID);
-    
-    WiFi.disconnect(true);
-    delay(200);
-    WiFi.mode(WIFI_STA);
-    WiFi.setAutoReconnect(true);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-
-    int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 35) {
-        display.renderConnectingScreen("Connecting WiFi...", WIFI_SSID, attempts);
-        delay(300);
-        Serial.print(".");
-        attempts++;
-    }
-
-    if (WiFi.status() == WL_CONNECTED) {
-        Serial.println("\n[WiFi] Connected!");
-        Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
-        display.renderConnectingScreen("WiFi Connected!", WiFi.localIP().toString(), 0);
-        delay(800);
-    } else {
-        Serial.printf("\n[WiFi] Status: %d. Waiting for network...\n", WiFi.status());
-        display.showStatusMessage("WiFi Connecting...", "Check Hotspot/Pass", "");
-        delay(800);
-    }
-}
-
 void setup() {
     Serial.begin(115200);
-    delay(500);
+    delay(300);
     Serial.println("\n=============================================");
-    Serial.println(" ESP32 Spotify Lyrics & Animations Display");
+    Serial.println(" ESP32 Spotify OLED Player (ZERO WIFI MODE)");
     Serial.println("=============================================");
 
     // Initialize OLED Display
@@ -121,9 +94,6 @@ void setup() {
         Serial.println("[Error] SSD1306 Display initialization failed!");
         while (true) delay(1000); // Halt if OLED missing
     }
-
-    display.renderConnectingScreen("OLED Player", "Initializing...", 0);
-    delay(800);
 
 #if DEMO_MODE
     Serial.println("[Mode] Running in DEMO_MODE (Offline Animation Preview)");
@@ -139,23 +109,14 @@ void setup() {
     display.renderConnectingScreen("Demo Mode Active", "Starting Song...", 1);
     delay(1000);
 
-#elif USE_LASTFM_AUTO_SYNC
-    Serial.println("[Mode] Running in LAST.FM SPOTIFY AUTO-SYNC MODE");
-    connectWiFi();
-    display.renderConnectingScreen("Spotify Ready", "Play music on app", 0);
-    delay(1000);
-
 #elif USE_BLUETOOTH_MODE
-    Serial.println("[Mode] Running in BLUETOOTH MODE");
+    Serial.println("[Mode] Running in PURE OFFLINE BLUETOOTH MODE (Zero WiFi)");
     display.renderConnectingScreen("Starting Bluetooth", BLUETOOTH_DEVICE_NAME, 1);
     btManager.begin(BLUETOOTH_DEVICE_NAME);
-    delay(300);
+    delay(200);
     display.renderConnectingScreen("Pair Bluetooth", BLUETOOTH_DEVICE_NAME, 0);
-    WiFi.mode(WIFI_STA);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.println("[Bluetooth] Ready! Pair your Phone or PC to '" + String(BLUETOOTH_DEVICE_NAME) + "'");
 
-#else
-    connectWiFi();
 #endif
 }
 
@@ -171,49 +132,9 @@ void loop() {
     currentTrack.isPlaying = true;
     currentTrack.hasData = true;
 
-#elif USE_LASTFM_AUTO_SYNC
-    // ------------------------------------------------------------------------
-    // 2. LAST.FM SPOTIFY AUTO-SYNC (Direct from official Spotify App)
-    // ------------------------------------------------------------------------
-    if (WiFi.status() != WL_CONNECTED) {
-        if (currentMs - lastWiFiRetryMs >= 8000 || lastWiFiRetryMs == 0) {
-            lastWiFiRetryMs = currentMs;
-            connectWiFi();
-        }
-        return;
-    }
-
-    if (currentMs - lastSpotifyPollMs >= 3000 || lastSpotifyPollMs == 0) {
-        lastSpotifyPollMs = currentMs;
-
-        SpotifyTrackInfo freshTrack;
-        if (lastfm.getCurrentlyPlaying(freshTrack)) {
-            currentTrack = freshTrack;
-
-            if (currentTrack.hasData && currentTrack.trackName != activeTrackTitle) {
-                activeTrackTitle = currentTrack.trackName;
-                Serial.printf("\n[Spotify Auto-Sync] Now Playing: %s by %s\n", 
-                              currentTrack.trackName.c_str(), 
-                              currentTrack.artistName.c_str());
-
-                display.renderConnectingScreen("Fetching Lyrics...", currentTrack.trackName, 2);
-
-                lyrics.fetchSyncedLyrics(
-                    currentTrack.trackName,
-                    currentTrack.artistName,
-                    currentTrack.albumName,
-                    currentTrack.durationMs
-                );
-                if (lyrics.getTrackDurationMs() > 0) {
-                    currentTrack.durationMs = lyrics.getTrackDurationMs();
-                }
-            }
-        }
-    }
-
 #elif USE_BLUETOOTH_MODE
     // ------------------------------------------------------------------------
-    // 3. BLUETOOTH MODE
+    // 2. OFFLINE BLUETOOTH MODE (Zero WiFi)
     // ------------------------------------------------------------------------
     btManager.update();
 
@@ -233,12 +154,6 @@ void loop() {
                 currentTrack.artistName = artist;
                 currentTrack.albumName = album;
                 currentTrack.durationMs = duration;
-
-                display.renderConnectingScreen("Fetching Lyrics...", title, 2);
-
-                if (WiFi.status() == WL_CONNECTED) {
-                    lyrics.fetchSyncedLyrics(title, artist, album, duration);
-                }
             }
             btManager.clearNewTrackFlag();
         }
@@ -256,60 +171,12 @@ void loop() {
         currentTrack.isPlaying = false;
     }
 
-#else
-    // ------------------------------------------------------------------------
-    // 4. SPOTIFY WEB API MODE
-    // ------------------------------------------------------------------------
-    if (WiFi.status() != WL_CONNECTED) {
-        connectWiFi();
-        return;
-    }
-
-    if (currentMs - lastSpotifyPollMs >= SPOTIFY_POLL_INTERVAL || lastSpotifyPollMs == 0) {
-        lastSpotifyPollMs = currentMs;
-
-        SpotifyTrackInfo freshTrack;
-        if (spotify.getCurrentlyPlaying(freshTrack)) {
-            currentTrack = freshTrack;
-
-            if (currentTrack.hasData && currentTrack.trackName != activeTrackTitle) {
-                activeTrackTitle = currentTrack.trackName;
-                Serial.printf("\n[Track Changed] Now Playing: %s by %s\n", 
-                              currentTrack.trackName.c_str(), 
-                              currentTrack.artistName.c_str());
-
-                display.renderConnectingScreen("Fetching Lyrics...", currentTrack.trackName, 2);
-
-                lyrics.fetchSyncedLyrics(
-                    currentTrack.trackName,
-                    currentTrack.artistName,
-                    currentTrack.albumName,
-                    currentTrack.durationMs
-                );
-            }
-        }
-    }
 #endif
 
     // ------------------------------------------------------------------------
     // Progress Extrapolation
     // ------------------------------------------------------------------------
     uint32_t estimatedProgressMs = currentTrack.progressMs;
-#if USE_LASTFM_AUTO_SYNC
-    if (currentTrack.isPlaying && currentTrack.lastFetchTimeMs > 0) {
-        estimatedProgressMs += (currentMs - currentTrack.lastFetchTimeMs);
-        if (currentTrack.durationMs > 0 && estimatedProgressMs > currentTrack.durationMs) {
-            estimatedProgressMs = currentTrack.durationMs;
-        }
-    }
-#elif !DEMO_MODE && !USE_BLUETOOTH_MODE
-    if (currentTrack.isPlaying && currentTrack.lastFetchTimeMs > 0) {
-        estimatedProgressMs += (currentMs - currentTrack.lastFetchTimeMs);
-        if (currentTrack.durationMs > 0 && estimatedProgressMs > currentTrack.durationMs) {
-            estimatedProgressMs = currentTrack.durationMs;
-        }
-    }
-#endif
 
     // ------------------------------------------------------------------------
     // OLED UI Rendering (~25 FPS / 40ms frame time)
@@ -333,11 +200,9 @@ void loop() {
                 lyrics.hasLyrics()
             );
         } else {
-#if USE_LASTFM_AUTO_SYNC
-            display.renderIdleScreen("Spotify Ready", "Play music on app");
-#elif USE_BLUETOOTH_MODE
+#if USE_BLUETOOTH_MODE
             if (btManager.isConnected()) {
-                display.renderIdleScreen("Bluetooth Paired", "Play any song on phone");
+                display.renderIdleScreen("Bluetooth Paired", "Play music on PC/Phone");
             } else {
                 display.renderConnectingScreen("Pair Bluetooth", BLUETOOTH_DEVICE_NAME, 0);
             }
@@ -347,5 +212,5 @@ void loop() {
         }
     }
 
-    yield(); // Keep ESP32 watchdog and background networking responsive
+    yield(); // Keep ESP32 watchdog responsive
 }
