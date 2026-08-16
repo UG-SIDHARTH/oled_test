@@ -1,0 +1,21 @@
+{
+    "configurations": [
+        {
+            "name": "ESP32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${env:LOCALAPPDATA}/Arduino15/packages/esp32/hardware/esp32/**",
+                "${env:USERPROFILE}/Documents/Arduino/libraries/**"
+            ],
+            "defines": [
+                "ESP32",
+                "ARDUINO=10819",
+                "ARDUINO_ARCH_ESP32"
+            ],
+            "cStandard": "c17",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}
