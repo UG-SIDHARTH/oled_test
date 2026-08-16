@@ -55,7 +55,7 @@ bool BluetoothManager::begin(const char* deviceName) {
 
     // Initialize A2DP Sink
     esp_a2d_register_callback(BluetoothManager::handleA2DEvent);
-    esp_a2d_sink_register_data_cb(BluetoothManager::handleA2DData);
+    esp_a2d_sink_register_data_callback(BluetoothManager::handleA2DData);
     esp_a2d_sink_init();
 
     // Initialize AVRCP Controller
@@ -163,7 +163,7 @@ void BluetoothManager::handleAVRCEvent(esp_avrc_ct_cb_event_t event, esp_avrc_ct
             break;
         }
 
-        case ESP_AVRC_CT_CHANGE_PATH_RSP_EVT:
+        case ESP_AVRC_CT_CHANGE_NOTIFY_EVT:
         case ESP_AVRC_CT_REMOTE_FEATURES_EVT: {
             // Request metadata and status notifications
             esp_avrc_ct_send_metadata_cmd(0, ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);

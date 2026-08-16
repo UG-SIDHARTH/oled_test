@@ -26,6 +26,7 @@
 
 #include <WiFi.h>
 #include "config.h"
+#include "SpotifyClient.h"
 #include "LyricsClient.h"
 #include "DisplayManager.h"
 
@@ -33,7 +34,6 @@
 #include "BluetoothManager.h"
 BluetoothManager btManager;
 #elif !DEMO_MODE
-#include "SpotifyClient.h"
 SpotifyClient spotify(SPOTIFY_CLIENT_ID, SPOTIFY_CLIENT_SECRET, SPOTIFY_REFRESH_TOKEN);
 #endif
 
