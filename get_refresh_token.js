@@ -10,7 +10,7 @@ const url = require('url');
 const readline = require('readline');
 const { exec } = require('child_process');
 
-const REDIRECT_URI = 'http://localhost:8888/callback';
+const REDIRECT_URI = 'http://127.0.0.1:8888/callback';
 const SCOPES = 'user-read-currently-playing user-read-playback-state';
 
 const rl = readline.createInterface({

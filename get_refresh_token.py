@@ -13,7 +13,7 @@ import base64
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-REDIRECT_URI = "http://localhost:8888/callback"
+REDIRECT_URI = "http://127.0.0.1:8888/callback"
 SCOPES = "user-read-currently-playing user-read-playback-state"
 
 auth_code = None
