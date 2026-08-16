@@ -21,7 +21,7 @@ try {
     $serial.Open()
     Write-Host "[Connected] Successfully opened $($Port)!" -ForegroundColor Green
     Write-Host "[Running] Listening to Spotify... Play any song on Spotify!`n" -ForegroundColor Cyan
-    Write-Host " [Controls] 'R': Reset 0:00 | 'F' / '+': +5s | 'B' / '-': -5s`n" -ForegroundColor DarkGray
+    Write-Host " [Sync Keys] '1'-'9': Jump to 1:00, 2:00 | 'F'/'+': +5s | 'B'/'-': -5s | 'R': 0:00`n" -ForegroundColor DarkGray
 } catch {
     Write-Host "[Error] Could not open $($Port). Details: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Please ensure Arduino Serial Monitor is CLOSED so $($Port) is free." -ForegroundColor Yellow
@@ -29,24 +29,36 @@ try {
 }
 
 $lastTrackKey = ""
-$trackDurationMs = 240000
+$trackDurationMs = 180000
 $lrcLines = @()
 $accumulatedElapsedMs = 0
 $lastTickTime = [DateTime]::UtcNow
 $syncOffsetMs = 0
 
 function Clean-Title ($title) {
-    # Remove (feat. ...), [Remastered...], - Radio Edit, etc. for 100% accurate LRCLIB matches
     $cleaned = $title -replace '\s*[\(\[](feat|ft|with|remix|remastered|live|official|deluxe|bonus|edit).*?[\)\]]', ''
     $cleaned = $cleaned -replace '\s*-\s*(Remastered|Live|Radio Edit|Deluxe|Single Version|Mono).*$', ''
     return $cleaned.Trim()
+}
+
+function Get-Exact-Duration ($trackName, $artistName) {
+    try {
+        $cleanTrack = Clean-Title $trackName
+        $query = [Uri]::EscapeDataString("$artistName $cleanTrack")
+        $url = "https://itunes.apple.com/search?term=$query&entity=song&limit=1"
+        $res = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 3 -ErrorAction Stop
+        if ($res.results -and $res.results.Count -gt 0 -and $res.results[0].trackTimeMillis) {
+            return [int]$res.results[0].trackTimeMillis
+        }
+    } catch {}
+    return 180000
 }
 
 function Fetch-Lyrics ($trackName, $artistName) {
     $cleanTrack = Clean-Title $trackName
     $cleanArtist = Clean-Title $artistName
 
-    # 1. Try exact match
+    # 1. Try exact match from LRCLIB
     try {
         $encodedTrack = [Uri]::EscapeDataString($cleanTrack)
         $encodedArtist = [Uri]::EscapeDataString($cleanArtist)
@@ -62,7 +74,7 @@ function Fetch-Lyrics ($trackName, $artistName) {
         }
     } catch {}
 
-    # 2. Fallback to Search query
+    # 2. Fallback to LRCLIB Search query
     try {
         $query = [Uri]::EscapeDataString("$cleanTrack $cleanArtist")
         $url = "https://lrclib.net/api/search?q=$query"
@@ -80,6 +92,8 @@ function Fetch-Lyrics ($trackName, $artistName) {
         }
     } catch {}
 
+    # 3. If no lyrics, query Apple Music API for exact track duration
+    $script:trackDurationMs = Get-Exact-Duration $trackName $artistName
     return @()
 }
 
@@ -110,16 +124,28 @@ try {
         # Check for keyboard sync adjustments
         if ([Console]::KeyAvailable) {
             $key = [Console]::ReadKey($true).KeyChar
-            if ($key -eq 'r' -or $key -eq 'R') {
+            if ($key -eq 'r' -or $key -eq 'R' -or $key -eq '0') {
                 $accumulatedElapsedMs = 0
                 $syncOffsetMs = 0
                 Write-Host "`n[Sync] Reset progress to 0:00" -ForegroundColor Magenta
+            } elseif ($key -ge '1' -and $key -le '9') {
+                # Press '1' -> 1:00, '2' -> 2:00, etc.
+                $minNum = [int]("$key")
+                $accumulatedElapsedMs = ($minNum * 60000)
+                $syncOffsetMs = 0
+                Write-Host "`n[Sync] Jumped to $($minNum):00" -ForegroundColor Magenta
             } elseif ($key -eq '+' -or $key -eq 'f' -or $key -eq 'F') {
                 $syncOffsetMs += 5000
                 Write-Host "`n[Sync] Skipped +5s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
             } elseif ($key -eq '-' -or $key -eq 'b' -or $key -eq 'B') {
                 $syncOffsetMs -= 5000
                 Write-Host "`n[Sync] Rewound -5s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
+            } elseif ($key -eq ']') {
+                $syncOffsetMs += 1000
+                Write-Host "`n[Sync] +1s" -ForegroundColor Magenta
+            } elseif ($key -eq '[') {
+                $syncOffsetMs -= 1000
+                Write-Host "`n[Sync] -1s" -ForegroundColor Magenta
             }
         }
 
@@ -146,12 +172,14 @@ try {
                 $lastTickTime = $now
                 Write-Host "`n[Now Playing ▶] $trackKey" -ForegroundColor Green
 
-                Write-Host "[Lyrics] Fetching synced lyrics from LRCLIB..." -ForegroundColor Yellow
+                Write-Host "[Lyrics] Fetching metadata & lyrics..." -ForegroundColor Yellow
                 $lrcLines = Fetch-Lyrics $track $artist
                 if ($lrcLines.Count -gt 0) {
-                    Write-Host "[Lyrics] Successfully loaded $($lrcLines.Count) synced lines!" -ForegroundColor Green
+                    Write-Host "[Lyrics] Loaded $($lrcLines.Count) synced lines!" -ForegroundColor Green
                 } else {
-                    Write-Host "[Lyrics] Instrumental / No synced lyrics available" -ForegroundColor DarkGray
+                    $durM = [Math]::Floor($trackDurationMs / 60000)
+                    $durS = [Math]::Floor(($trackDurationMs % 60000) / 1000)
+                    Write-Host "[Lyrics] Instrumental/No lyrics (Exact duration: {0:D2}:{1:D2})" -f [int]$durM, [int]$durS -ForegroundColor DarkGray
                 }
             }
 
@@ -161,6 +189,9 @@ try {
             $accumulatedElapsedMs += $deltaMs
 
             $effectiveTimeMs = [Math]::Max(0, [int]($accumulatedElapsedMs + $syncOffsetMs))
+            if ($trackDurationMs -gt 0 -and $effectiveTimeMs -gt $trackDurationMs) {
+                $effectiveTimeMs = $trackDurationMs
+            }
 
             # Find active and next lyric
             $activeLyric = ""
