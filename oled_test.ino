@@ -14,13 +14,10 @@
  *   - OLED VCC -> 3.3V / 5V
  *   - OLED GND -> GND
  * 
- * Features:
- *   - 📱 BLUETOOTH MODE: Pair phone/PC to "ESP32-Spotify-OLED" (No Spotify Premium needed!)
- *   - 🎤 LRCLIB Synced Lyrics: Auto-fetches millisecond-accurate lyrics over WiFi
- *   - 📊 6-Band Spectrum Visualizer: Peak-hold decay animation
- *   - 💿 Spinning Vinyl Record & Floating Notes particles
- *   - 📜 Smart Marquee Scrolling text for song names and long lyric lines
- *   - 🔮 Next-Line Lyric Preview
+ * Modes:
+ *   - 🌟 LAST.FM AUTO-SYNC: 100% Automatic sync from official Spotify App (Free & Premium on iPhone/Android/PC)
+ *   - 📱 BLUETOOTH MODE: Direct Bluetooth Serial receiver
+ *   - ⚡ DEMO MODE: Offline animation and synced lyrics preview
  * ============================================================================
  */
 
@@ -30,7 +27,10 @@
 #include "LyricsClient.h"
 #include "DisplayManager.h"
 
-#if USE_BLUETOOTH_MODE
+#if USE_LASTFM_AUTO_SYNC
+#include "LastFmClient.h"
+LastFmClient lastfm(LASTFM_API_KEY, LASTFM_USERNAME);
+#elif USE_BLUETOOTH_MODE
 #include "BluetoothManager.h"
 BluetoothManager btManager;
 #elif !DEMO_MODE
@@ -98,7 +98,7 @@ void connectWiFi() {
         display.renderConnectingScreen("WiFi Connected!", WiFi.localIP().toString(), 0);
         delay(1000);
     } else {
-        Serial.println("\n[WiFi] Connection Timeout - Will retry in background");
+        Serial.println("\n[WiFi] Connection Timeout - Retrying...");
         display.showStatusMessage("WiFi Reconnecting", "Checking network...", "");
         delay(1000);
     }
@@ -134,24 +134,22 @@ void setup() {
     display.renderConnectingScreen("Demo Mode Active", "Starting Song...", 1);
     delay(1000);
 
+#elif USE_LASTFM_AUTO_SYNC
+    Serial.println("[Mode] Running in LAST.FM SPOTIFY AUTO-SYNC MODE");
+    connectWiFi();
+    display.renderConnectingScreen("Spotify Ready", "Play music on app", 0);
+    delay(1000);
+
 #elif USE_BLUETOOTH_MODE
-    Serial.println("[Mode] Running in BLUETOOTH MODE (No Spotify Premium needed)");
-    
-    // Initialize Bluetooth Media Receiver
+    Serial.println("[Mode] Running in BLUETOOTH MODE");
     display.renderConnectingScreen("Starting Bluetooth", BLUETOOTH_DEVICE_NAME, 1);
     btManager.begin(BLUETOOTH_DEVICE_NAME);
     delay(300);
-
-    // Show pairing screen on OLED
     display.renderConnectingScreen("Pair Bluetooth", BLUETOOTH_DEVICE_NAME, 0);
-
-    // Start WiFi in background for LRCLIB lyrics without blocking Bluetooth radio
     WiFi.mode(WIFI_STA);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
-    Serial.println("[WiFi] Background connection initiated...");
 
 #else
-    // Connect to WiFi for Spotify Web API
     connectWiFi();
 #endif
 }
@@ -168,14 +166,47 @@ void loop() {
     currentTrack.isPlaying = true;
     currentTrack.hasData = true;
 
+#elif USE_LASTFM_AUTO_SYNC
+    // ------------------------------------------------------------------------
+    // 2. LAST.FM SPOTIFY AUTO-SYNC (Direct from official Spotify App)
+    // ------------------------------------------------------------------------
+    if (WiFi.status() != WL_CONNECTED) {
+        connectWiFi();
+        return;
+    }
+
+    if (currentMs - lastSpotifyPollMs >= 3000 || lastSpotifyPollMs == 0) {
+        lastSpotifyPollMs = currentMs;
+
+        SpotifyTrackInfo freshTrack;
+        if (lastfm.getCurrentlyPlaying(freshTrack)) {
+            currentTrack = freshTrack;
+
+            if (currentTrack.hasData && currentTrack.trackName != activeTrackTitle) {
+                activeTrackTitle = currentTrack.trackName;
+                Serial.printf("\n[Spotify Auto-Sync] Now Playing: %s by %s\n", 
+                              currentTrack.trackName.c_str(), 
+                              currentTrack.artistName.c_str());
+
+                display.renderConnectingScreen("Fetching Lyrics...", currentTrack.trackName, 2);
+
+                lyrics.fetchSyncedLyrics(
+                    currentTrack.trackName,
+                    currentTrack.artistName,
+                    currentTrack.albumName,
+                    currentTrack.durationMs
+                );
+            }
+        }
+    }
+
 #elif USE_BLUETOOTH_MODE
     // ------------------------------------------------------------------------
-    // 2. BLUETOOTH MODE (Phone / PC Bluetooth Media Receiver)
+    // 3. BLUETOOTH MODE
     // ------------------------------------------------------------------------
     btManager.update();
 
     if (btManager.isConnected()) {
-        // Check if track title changed
         if (btManager.hasNewTrack()) {
             String title = btManager.getTrackName();
             String artist = btManager.getArtistName();
@@ -194,7 +225,6 @@ void loop() {
 
                 display.renderConnectingScreen("Fetching Lyrics...", title, 2);
 
-                // Fetch new synced lyrics from LRCLIB over WiFi
                 if (WiFi.status() == WL_CONNECTED) {
                     lyrics.fetchSyncedLyrics(title, artist, album, duration);
                 }
@@ -217,7 +247,7 @@ void loop() {
 
 #else
     // ------------------------------------------------------------------------
-    // 3. SPOTIFY WEB API MODE
+    // 4. SPOTIFY WEB API MODE
     // ------------------------------------------------------------------------
     if (WiFi.status() != WL_CONNECTED) {
         connectWiFi();
@@ -254,7 +284,14 @@ void loop() {
     // Progress Extrapolation
     // ------------------------------------------------------------------------
     uint32_t estimatedProgressMs = currentTrack.progressMs;
-#if !DEMO_MODE && !USE_BLUETOOTH_MODE
+#if USE_LASTFM_AUTO_SYNC
+    if (currentTrack.isPlaying && currentTrack.lastFetchTimeMs > 0) {
+        estimatedProgressMs += (currentMs - currentTrack.lastFetchTimeMs);
+        if (currentTrack.durationMs > 0 && estimatedProgressMs > currentTrack.durationMs) {
+            estimatedProgressMs = currentTrack.durationMs;
+        }
+    }
+#elif !DEMO_MODE && !USE_BLUETOOTH_MODE
     if (currentTrack.isPlaying && currentTrack.lastFetchTimeMs > 0) {
         estimatedProgressMs += (currentMs - currentTrack.lastFetchTimeMs);
         if (currentTrack.durationMs > 0 && estimatedProgressMs > currentTrack.durationMs) {
@@ -270,7 +307,7 @@ void loop() {
     if (currentMs - lastFrameMs >= frameInterval) {
         lastFrameMs = currentMs;
 
-        if (currentTrack.hasData) {
+        if (currentTrack.hasData && currentTrack.isPlaying) {
             String activeLyric = lyrics.getActiveLyric(estimatedProgressMs);
             String nextLyric = lyrics.getNextLyric(estimatedProgressMs);
 
@@ -285,7 +322,9 @@ void loop() {
                 lyrics.hasLyrics()
             );
         } else {
-#if USE_BLUETOOTH_MODE
+#if USE_LASTFM_AUTO_SYNC
+            display.renderIdleScreen("Spotify Ready", "Play music on app");
+#elif USE_BLUETOOTH_MODE
             if (btManager.isConnected()) {
                 display.renderIdleScreen("Bluetooth Paired", "Play any song on phone");
             } else {
@@ -297,5 +336,5 @@ void loop() {
         }
     }
 
-    yield(); // Keep ESP32 watchdog and Bluetooth/WiFi stack responsive
+    yield(); // Keep ESP32 watchdog and background networking responsive
 }
