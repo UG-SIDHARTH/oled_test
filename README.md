@@ -45,52 +45,30 @@ Open your **Arduino IDE**, go to **Library Manager** (`Ctrl+Shift+I` or `Cmd+Shi
 
 ## 🚀 Quick Start Guide
 
-### Option A: Quick Offline Demo (Instant Visualizer & Lyrics Test)
-1. Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h).
-2. Set `DEMO_MODE` to `true`:
+### Option A: 📱 Bluetooth Mode (Recommended - No Spotify Premium / Web API needed!)
+1. Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h) and set:
    ```cpp
-   #define DEMO_MODE true
+   #define USE_BLUETOOTH_MODE  true
+   #define WIFI_SSID           "Your_WiFi_SSID"
+   #define WIFI_PASSWORD       "Your_WiFi_Password"
    ```
-3. Flash [`oled_test.ino`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/oled_test.ino) to your ESP32.
-4. Watch *Coldplay - Viva La Vida* play live with synchronized scrolling lyrics, spinning vinyl record, and dancing audio spectrum visualizer!
+2. Upload [`oled_test.ino`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/oled_test.ino) to your ESP32.
+3. On your phone or PC, open **Bluetooth Settings** and pair with **`ESP32-Spotify-OLED`**.
+4. Play any song on **Spotify (Free or Premium)**, **YouTube Music**, or **Apple Music**!
+   - The ESP32 receives track metadata over Bluetooth and fetches real-time synced lyrics from LRCLIB over WiFi.
 
 ---
 
-### Option B: Live Spotify Sync Mode
+### Option B: ⚡ Offline Demo Mode (Instant Animation Preview)
+1. Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h) and set `DEMO_MODE true`.
+2. Upload to ESP32 to preview *Coldplay - Viva La Vida* with lyrics, spinning vinyl, and visualizers.
 
-#### Step 1: Spotify Developer App
-1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
-2. Click **Create an App**.
-3. Set **Redirect URI** to: `http://localhost:8888/callback`
-4. Copy your **Client ID** and **Client Secret**.
+---
 
-#### Step 2: Get `SPOTIFY_REFRESH_TOKEN`
-Run the included Python helper script in your terminal:
-```bash
-python get_refresh_token.py
-```
-- Enter your **Client ID** and **Client Secret**.
-- Authorize your account in the browser.
-- Copy the generated `SPOTIFY_REFRESH_TOKEN`.
-
-#### Step 3: Configure `config.h`
-Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h) and set:
-```cpp
-#define DEMO_MODE false
-
-#define WIFI_SSID       "Your_WiFi_SSID"
-#define WIFI_PASSWORD   "Your_WiFi_Password"
-
-#define SPOTIFY_CLIENT_ID     "your_client_id"
-#define SPOTIFY_CLIENT_SECRET "your_client_secret"
-#define SPOTIFY_REFRESH_TOKEN "your_refresh_token"
-```
-
-#### Step 4: Flash & Enjoy
-1. Open [`oled_test.ino`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/oled_test.ino) in Arduino IDE.
-2. Select Board: **ESP32 Dev Module** and choose your COM Port.
-3. Click **Upload**.
-4. Play any track on your Spotify app (phone/desktop/web) — watch lyrics, progress, and animations sync live on the OLED display!
+### Option C: 🌐 Spotify Web API Mode (Requires Spotify Premium)
+1. Set `USE_BLUETOOTH_MODE false` and `DEMO_MODE false` in [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h).
+2. Enter your `SPOTIFY_CLIENT_ID`, `SPOTIFY_CLIENT_SECRET`, and `SPOTIFY_REFRESH_TOKEN`.
+3. Upload to ESP32.
 
 ---
 

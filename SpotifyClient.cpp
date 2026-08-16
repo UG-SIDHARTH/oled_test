@@ -118,6 +118,10 @@ bool SpotifyClient::getCurrentlyPlaying(SpotifyTrackInfo &trackInfo) {
         refreshAccessToken();
     } else {
         Serial.printf("[Spotify] HTTP Error on currently playing: %d\n", httpCode);
+        if (httpCode > 0) {
+            String errorMsg = http.getString();
+            Serial.printf("[Spotify] Details: %s\n", errorMsg.c_str());
+        }
     }
 
     http.end();
