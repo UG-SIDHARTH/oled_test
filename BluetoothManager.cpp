@@ -56,8 +56,8 @@ bool BluetoothManager::begin(const char* deviceName) {
     // This is mandatory for phones (iOS/Android) and PCs to list the device in Bluetooth audio scans!
     esp_bt_cod_t cod;
     cod.major = ESP_BT_COD_MAJOR_DEV_AV;
-    cod.minor = ESP_BT_COD_MINOR_DEV_AV_LOUDSPEAKER;
-    cod.service = ESP_BT_COD_SRV_AUDIO | ESP_BT_COD_SRV_RENDERING;
+    cod.minor = 0x05; // Audio Loudspeaker / Speaker minor class
+    cod.service = ESP_BT_COD_SRVC_AUDIO | ESP_BT_COD_SRVC_RENDERING;
     esp_bt_gap_set_cod(cod, ESP_BT_INIT_COD);
 
     // Set Simple Secure Pairing (SSP) to "Just Works" (no PIN required)
