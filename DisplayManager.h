@@ -3,8 +3,7 @@
 
 #include <Arduino.h>
 #include <Wire.h>
-#include <Adafruit_GFX.h>
-#include <Adafruit_SSD1306.h>
+#include <U8g2lib.h>
 #include "config.h"
 
 // Number of visualizer bars
@@ -24,7 +23,7 @@ class DisplayManager {
 public:
     DisplayManager();
 
-    // Initializes I2C & SSD1306 display
+    // Initializes I2C & SSD1306 display with U8g2
     bool begin();
 
     // Clears screen buffer
@@ -58,7 +57,7 @@ public:
     void updateAndDrawFloatingNotes(int minX, int maxX, int minY, int maxY, bool isPlaying);
 
 private:
-    Adafruit_SSD1306 _display;
+    U8G2_SSD1306_128X64_NONAME_F_HW_I2C _u8g2;
 
     // Header marquee scroll state
     int _headerScrollOffset = 0;

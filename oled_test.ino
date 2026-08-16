@@ -15,9 +15,8 @@
  *   - OLED GND -> GND
  * 
  * Dependencies (Install via Arduino Library Manager):
- *   1. Adafruit SSD1306
- *   2. Adafruit GFX Library
- *   3. ArduinoJson (v6 or v7)
+ *   1. U8g2 by Oliver (for high-performance SSD1306 graphics)
+ *   2. ArduinoJson (v6 or v7)
  * 
  * Features:
  *   - Real-time Synced Lyrics from LRCLIB with Auto-scrolling & Next-line preview

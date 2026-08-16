@@ -38,9 +38,8 @@ An ESP32 program that connects to WiFi, monitors your active playback on **Spoti
 
 Open your **Arduino IDE**, go to **Library Manager** (`Ctrl+Shift+I` or `Cmd+Shift+I`), and install:
 
-1. **`Adafruit SSD1306`** by Adafruit
-2. **`Adafruit GFX Library`** by Adafruit
-3. **`ArduinoJson`** (v6.x or v7.x) by Benoit Blanchon
+1. **`U8g2`** by Oliver (high-performance monochrome graphics library)
+2. **`ArduinoJson`** (v6.x or v7.x) by Benoit Blanchon
 
 ---
 

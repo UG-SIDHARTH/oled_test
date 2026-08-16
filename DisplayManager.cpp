@@ -2,7 +2,7 @@
 #include <math.h>
 
 DisplayManager::DisplayManager()
-    : _display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET) {
+    : _u8g2(U8G2_R0, /* reset=*/ U8X8_PIN_NONE, /* clock=*/ OLED_SCL, /* data=*/ OLED_SDA) {
     for (int i = 0; i < EQ_BAR_COUNT; i++) {
         _eqHeights[i] = 2.0f;
         _eqPeaks[i] = 2.0f;
@@ -12,21 +12,22 @@ DisplayManager::DisplayManager()
 
 bool DisplayManager::begin() {
     Wire.begin(OLED_SDA, OLED_SCL);
-    if (!_display.begin(SSD1306_SWITCHCAPVCC, SCREEN_ADDRESS)) {
-        Serial.println(F("[OLED] SSD1306 allocation failed! Check I2C address & wiring."));
+    if (!_u8g2.begin()) {
+        Serial.println(F("[OLED] U8g2 SSD1306 initialization failed! Check I2C address & wiring."));
         return false;
     }
 
-    _display.clearDisplay();
-    _display.setTextColor(SSD1306_WHITE);
-    _display.setTextWrap(false);
-    _display.display();
+    _u8g2.setFont(u8g2_font_6x10_tf);
+    _u8g2.setFontPosTop();
+    _u8g2.setDrawColor(1);
+    _u8g2.clearBuffer();
+    _u8g2.sendBuffer();
     return true;
 }
 
 void DisplayManager::clear() {
-    _display.clearDisplay();
-    _display.display();
+    _u8g2.clearBuffer();
+    _u8g2.sendBuffer();
 }
 
 void DisplayManager::initFloatingNotes() {
@@ -50,11 +51,11 @@ String DisplayManager::formatTime(uint32_t ms) {
 }
 
 void DisplayManager::drawProgressBar(int x, int y, int width, int height, uint32_t progressMs, uint32_t durationMs) {
-    _display.drawRect(x, y, width, height, SSD1306_WHITE);
+    _u8g2.drawFrame(x, y, width, height);
     if (durationMs > 0) {
         int fillWidth = map(constrain(progressMs, 0, durationMs), 0, durationMs, 0, width - 2);
         if (fillWidth > 0) {
-            _display.fillRect(x + 1, y + 1, fillWidth, height - 2, SSD1306_WHITE);
+            _u8g2.drawBox(x + 1, y + 1, fillWidth, height - 2);
         }
     }
 }
@@ -64,18 +65,18 @@ void DisplayManager::drawMusicNoteGlyph(int x, int y, bool isDouble) {
     
     if (isDouble) {
         // Double note ♫ glyph (7x7)
-        _display.fillRect(x, y + 4, 3, 3, SSD1306_WHITE);       // Left head
-        _display.fillRect(x + 5, y + 3, 3, 3, SSD1306_WHITE);   // Right head
-        _display.drawFastVLine(x + 2, y + 1, 4, SSD1306_WHITE);  // Left stem
-        _display.drawFastVLine(x + 7, y, 4, SSD1306_WHITE);      // Right stem
-        _display.drawFastHLine(x + 2, y, 6, SSD1306_WHITE);      // Beam top
-        _display.drawFastHLine(x + 2, y + 1, 6, SSD1306_WHITE);  // Beam thick
+        _u8g2.drawBox(x, y + 4, 3, 3);       // Left head
+        _u8g2.drawBox(x + 5, y + 3, 3, 3);   // Right head
+        _u8g2.drawVLine(x + 2, y + 1, 4);    // Left stem
+        _u8g2.drawVLine(x + 7, y, 4);        // Right stem
+        _u8g2.drawHLine(x + 2, y, 6);        // Beam top
+        _u8g2.drawHLine(x + 2, y + 1, 6);    // Beam thick
     } else {
         // Single note ♪ glyph (5x6)
-        _display.fillRect(x, y + 3, 3, 3, SSD1306_WHITE);       // Note head
-        _display.drawFastVLine(x + 2, y, 4, SSD1306_WHITE);      // Stem
-        _display.drawPixel(x + 3, y, SSD1306_WHITE);             // Flag
-        _display.drawPixel(x + 4, y + 1, SSD1306_WHITE);
+        _u8g2.drawBox(x, y + 3, 3, 3);       // Note head
+        _u8g2.drawVLine(x + 2, y, 4);        // Stem
+        _u8g2.drawPixel(x + 3, y);           // Flag
+        _u8g2.drawPixel(x + 4, y + 1);
     }
 }
 
@@ -149,29 +150,31 @@ void DisplayManager::drawEqualizer(int x, int y, int width, int height, bool isP
         peakH = constrain(peakH, 1, height);
 
         // Draw spectrum bar
-        _display.fillRect(curX, y + height - barH, barWidth, barH, SSD1306_WHITE);
+        _u8g2.drawBox(curX, y + height - barH, barWidth, barH);
 
         // Draw floating peak cap line
         if (peakH > barH && peakH <= height) {
-            _display.drawFastHLine(curX, y + height - peakH, barWidth, SSD1306_WHITE);
+            _u8g2.drawHLine(curX, y + height - peakH, barWidth);
         }
     }
 }
 
 void DisplayManager::drawSpinningVinyl(int centerX, int centerY, int radius, uint8_t angleStep) {
     // Outer disc ring
-    _display.drawCircle(centerX, centerY, radius, SSD1306_WHITE);
+    _u8g2.drawCircle(centerX, centerY, radius);
     // Inner groove ring
     if (radius > 6) {
-        _display.drawCircle(centerX, centerY, radius - 3, SSD1306_WHITE);
+        _u8g2.drawCircle(centerX, centerY, radius - 3);
     }
     if (radius > 12) {
-        _display.drawCircle(centerX, centerY, radius - 7, SSD1306_WHITE);
+        _u8g2.drawCircle(centerX, centerY, radius - 7);
     }
     // Center label ring & spindle
     int labelRadius = radius > 10 ? 4 : 2;
-    _display.fillCircle(centerX, centerY, labelRadius, SSD1306_WHITE);
-    _display.drawPixel(centerX, centerY, SSD1306_BLACK);
+    _u8g2.drawDisc(centerX, centerY, labelRadius);
+    _u8g2.setDrawColor(0);
+    _u8g2.drawPixel(centerX, centerY);
+    _u8g2.setDrawColor(1);
 
     // Rotating strobe reflections (4 spokes)
     float angleRad = (angleStep % 8) * (3.14159f / 4.0f);
@@ -181,51 +184,51 @@ void DisplayManager::drawSpinningVinyl(int centerX, int centerY, int radius, uin
         int y1 = centerY + (int)(sin(a) * (labelRadius + 2));
         int x2 = centerX + (int)(cos(a) * (radius - 1));
         int y2 = centerY + (int)(sin(a) * (radius - 1));
-        _display.drawLine(x1, y1, x2, y2, SSD1306_WHITE);
+        _u8g2.drawLine(x1, y1, x2, y2);
     }
 
     // Tonearm indicator
     int armBaseX = centerX + radius + 5;
     int armBaseY = centerY - radius + 2;
     if (armBaseX < SCREEN_WIDTH - 2) {
-        _display.drawFastVLine(armBaseX, armBaseY - 3, 6, SSD1306_WHITE);
-        _display.drawLine(armBaseX, armBaseY, centerX + radius - 2, centerY - 2, SSD1306_WHITE);
-        _display.fillRect(centerX + radius - 3, centerY - 3, 2, 3, SSD1306_WHITE); // Cartridge
+        _u8g2.drawVLine(armBaseX, armBaseY - 3, 6);
+        _u8g2.drawLine(armBaseX, armBaseY, centerX + radius - 2, centerY - 2);
+        _u8g2.drawBox(centerX + radius - 3, centerY - 3, 2, 3); // Cartridge
     }
 }
 
 void DisplayManager::drawMiniCassette(int x, int y, uint8_t animFrame) {
     // Outer cassette shell (36x22)
-    _display.drawRoundRect(x, y, 36, 22, 2, SSD1306_WHITE);
+    _u8g2.drawRFrame(x, y, 36, 22, 2);
     // Center label area
-    _display.drawRect(x + 4, y + 4, 28, 14, SSD1306_WHITE);
+    _u8g2.drawFrame(x + 4, y + 4, 28, 14);
     
     // Left spool
     int sp1X = x + 11;
     int sp1Y = y + 11;
-    _display.drawCircle(sp1X, sp1Y, 3, SSD1306_WHITE);
-    _display.drawPixel(sp1X, sp1Y, SSD1306_WHITE);
+    _u8g2.drawCircle(sp1X, sp1Y, 3);
+    _u8g2.drawPixel(sp1X, sp1Y);
     // Spool spokes rotation
     uint8_t step = animFrame % 4;
     if (step == 0 || step == 2) {
-        _display.drawFastHLine(sp1X - 2, sp1Y, 5, SSD1306_WHITE);
+        _u8g2.drawHLine(sp1X - 2, sp1Y, 5);
     } else {
-        _display.drawFastVLine(sp1X, sp1Y - 2, 5, SSD1306_WHITE);
+        _u8g2.drawVLine(sp1X, sp1Y - 2, 5);
     }
 
     // Right spool
     int sp2X = x + 25;
     int sp2Y = y + 11;
-    _display.drawCircle(sp2X, sp2Y, 3, SSD1306_WHITE);
-    _display.drawPixel(sp2X, sp2Y, SSD1306_WHITE);
+    _u8g2.drawCircle(sp2X, sp2Y, 3);
+    _u8g2.drawPixel(sp2X, sp2Y);
     if (step == 0 || step == 2) {
-        _display.drawFastHLine(sp2X - 2, sp2Y, 5, SSD1306_WHITE);
+        _u8g2.drawHLine(sp2X - 2, sp2Y, 5);
     } else {
-        _display.drawFastVLine(sp2X, sp2Y - 2, 5, SSD1306_WHITE);
+        _u8g2.drawVLine(sp2X, sp2Y - 2, 5);
     }
 
     // Tape window bridge between spools
-    _display.drawFastHLine(sp1X + 4, sp1Y, 6, SSD1306_WHITE);
+    _u8g2.drawHLine(sp1X + 4, sp1Y, 6);
 }
 
 void DisplayManager::renderPlayer(
@@ -244,8 +247,10 @@ void DisplayManager::renderPlayer(
         _lastAnimFrameMs = now;
     }
 
-    _display.clearDisplay();
-    _display.setTextColor(SSD1306_WHITE);
+    _u8g2.clearBuffer();
+    _u8g2.setFont(u8g2_font_6x10_tf);
+    _u8g2.setFontPosTop();
+    _u8g2.setDrawColor(1);
 
     // ========================================================================
     // 1. TOP HEADER: Mini Equalizer + Song Title Marquee (y = 0..11)
@@ -255,13 +260,13 @@ void DisplayManager::renderPlayer(
         int b1 = (int)(sin(now * 0.010f) * 3.0f + 4.0f);
         int b2 = (int)(cos(now * 0.013f) * 3.5f + 4.5f);
         int b3 = (int)(sin(now * 0.008f) * 3.0f + 4.0f);
-        _display.fillRect(0, 9 - constrain(b1, 1, 8), 2, constrain(b1, 1, 8), SSD1306_WHITE);
-        _display.fillRect(3, 9 - constrain(b2, 1, 8), 2, constrain(b2, 1, 8), SSD1306_WHITE);
-        _display.fillRect(6, 9 - constrain(b3, 1, 8), 2, constrain(b3, 1, 8), SSD1306_WHITE);
+        _u8g2.drawBox(0, 9 - constrain(b1, 1, 8), 2, constrain(b1, 1, 8));
+        _u8g2.drawBox(3, 9 - constrain(b2, 1, 8), 2, constrain(b2, 1, 8));
+        _u8g2.drawBox(6, 9 - constrain(b3, 1, 8), 2, constrain(b3, 1, 8));
     } else {
-        _display.fillRect(0, 7, 2, 2, SSD1306_WHITE);
-        _display.fillRect(3, 7, 2, 2, SSD1306_WHITE);
-        _display.fillRect(6, 7, 2, 2, SSD1306_WHITE);
+        _u8g2.drawBox(0, 7, 2, 2);
+        _u8g2.drawBox(3, 7, 2, 2);
+        _u8g2.drawBox(6, 7, 2, 2);
     }
 
     // Build header text: "Track Name - Artist Name"
@@ -276,8 +281,7 @@ void DisplayManager::renderPlayer(
         _lastHeaderScrollMs = now;
     }
 
-    _display.setTextSize(1);
-    _display.setCursor(11, 0);
+    _u8g2.setCursor(11, 0);
 
     // Header max visible characters: ~19 chars at 6px each
     if (fullTitle.length() > 19) {
@@ -288,13 +292,13 @@ void DisplayManager::renderPlayer(
             }
             _lastHeaderScrollMs = now;
         }
-        _display.print(fullTitle.substring(_headerScrollOffset));
+        _u8g2.print(fullTitle.substring(_headerScrollOffset));
     } else {
-        _display.print(fullTitle);
+        _u8g2.print(fullTitle);
     }
 
     // Header dividing line
-    _display.drawFastHLine(0, 11, SCREEN_WIDTH, SSD1306_WHITE);
+    _u8g2.drawHLine(0, 11, SCREEN_WIDTH);
 
     // ========================================================================
     // 2. CENTER SECTION: Synced Lyrics & Dynamic Visualizer (y = 14..50)
@@ -311,12 +315,11 @@ void DisplayManager::renderPlayer(
         updateAndDrawFloatingNotes(96, 122, 14, 48, isPlaying);
 
         // Display small badge if no lyrics vs instrumental
-        _display.setTextSize(1);
-        _display.setCursor(54, 45);
+        _u8g2.setCursor(54, 45);
         if (!hasLyrics) {
-            _display.print(F("[No Lyrics]"));
+            _u8g2.print(F("[No Lyrics]"));
         } else {
-            _display.print(F("[Music ♪]"));
+            _u8g2.print(F("[Music ♪]"));
         }
     } else {
         // --------------------------------------------------------------------
@@ -330,11 +333,8 @@ void DisplayManager::renderPlayer(
         }
 
         // Active Lyric Line (y = 15..28)
-        _display.setTextSize(1);
-        _display.setCursor(0, 15);
-
-        // Print active line indicator icon
-        _display.print(F("> "));
+        _u8g2.setCursor(0, 15);
+        _u8g2.print(F("> "));
 
         // Auto marquee scroll if active lyric > 19 chars
         if (activeLyric.length() > 19) {
@@ -345,20 +345,19 @@ void DisplayManager::renderPlayer(
                 }
                 _lastLyricScrollMs = now;
             }
-            _display.println(activeLyric.substring(_lyricScrollOffset));
+            _u8g2.print(activeLyric.substring(_lyricScrollOffset));
         } else {
-            _display.println(activeLyric);
+            _u8g2.print(activeLyric);
         }
 
         // Next Lyric Preview Line (y = 28..39)
         if (nextLyric.length() > 0) {
-            _display.setCursor(6, 28);
-            _display.setTextSize(1);
-            _display.print(F("» "));
+            _u8g2.setCursor(6, 28);
+            _u8g2.print(F("» "));
             if (nextLyric.length() > 18) {
-                _display.print(nextLyric.substring(0, 18) + "..");
+                _u8g2.print(nextLyric.substring(0, 18) + "..");
             } else {
-                _display.print(nextLyric);
+                _u8g2.print(nextLyric);
             }
         }
 
@@ -369,25 +368,24 @@ void DisplayManager::renderPlayer(
     // ========================================================================
     // 3. FOOTER: Play/Pause Icon, Sleek Progress Bar, Time Display (y = 52..63)
     // ========================================================================
-    _display.drawFastHLine(0, 51, SCREEN_WIDTH, SSD1306_WHITE);
+    _u8g2.drawHLine(0, 51, SCREEN_WIDTH);
 
     // Play / Pause Icon at (0, 54)
     if (isPlaying) {
-        _display.fillTriangle(1, 54, 1, 62, 7, 58, SSD1306_WHITE);
+        _u8g2.drawTriangle(1, 54, 1, 62, 7, 58);
     } else {
-        _display.fillRect(1, 54, 2, 8, SSD1306_WHITE);
-        _display.fillRect(5, 54, 2, 8, SSD1306_WHITE);
+        _u8g2.drawBox(1, 54, 2, 8);
+        _u8g2.drawBox(5, 54, 2, 8);
     }
 
     // Progress Bar (x=12, y=56, width=64, height=5)
     drawProgressBar(12, 56, 64, 5, progressMs, durationMs);
 
     // Time Elapsed: e.g. "02:45"
-    _display.setTextSize(1);
-    _display.setCursor(80, 55);
-    _display.print(formatTime(progressMs));
+    _u8g2.setCursor(80, 54);
+    _u8g2.print(formatTime(progressMs));
 
-    _display.display();
+    _u8g2.sendBuffer();
 }
 
 void DisplayManager::renderIdleScreen(const String& line1, const String& line2) {
@@ -397,14 +395,15 @@ void DisplayManager::renderIdleScreen(const String& line1, const String& line2) 
         _lastAnimFrameMs = now;
     }
 
-    _display.clearDisplay();
-    _display.setTextColor(SSD1306_WHITE);
+    _u8g2.clearBuffer();
+    _u8g2.setFont(u8g2_font_6x10_tf);
+    _u8g2.setFontPosTop();
+    _u8g2.setDrawColor(1);
 
     // Header
-    _display.setTextSize(1);
-    _display.setCursor(14, 2);
-    _display.print(F("SPOTIFY OLED PLAYER"));
-    _display.drawFastHLine(0, 12, SCREEN_WIDTH, SSD1306_WHITE);
+    _u8g2.setCursor(14, 2);
+    _u8g2.print(F("SPOTIFY OLED PLAYER"));
+    _u8g2.drawHLine(0, 12, SCREEN_WIDTH);
 
     // Animated spinning vinyl disc on left
     drawSpinningVinyl(24, 37, 16, _animFrame);
@@ -416,57 +415,59 @@ void DisplayManager::renderIdleScreen(const String& line1, const String& line2) 
     updateAndDrawFloatingNotes(92, 120, 16, 44, true);
 
     // Status text in footer
-    _display.drawFastHLine(0, 50, SCREEN_WIDTH, SSD1306_WHITE);
-    _display.setCursor(2, 54);
-    _display.print(line1);
+    _u8g2.drawHLine(0, 50, SCREEN_WIDTH);
+    _u8g2.setCursor(2, 54);
+    _u8g2.print(line1);
 
     // Animated pulsing dots
     uint8_t dots = (_animFrame / 3) % 4;
     for (uint8_t d = 0; d < dots; d++) {
-        _display.print('.');
+        _u8g2.print('.');
     }
 
-    _display.display();
+    _u8g2.sendBuffer();
 }
 
 void DisplayManager::renderConnectingScreen(const String& title, const String& subtitle, uint8_t animStep) {
-    _display.clearDisplay();
-    _display.setTextColor(SSD1306_WHITE);
+    _u8g2.clearBuffer();
+    _u8g2.setFont(u8g2_font_6x10_tf);
+    _u8g2.setFontPosTop();
+    _u8g2.setDrawColor(1);
 
     // Cassette animation
     drawMiniCassette(46, 6, animStep);
 
     // Title
-    _display.setTextSize(1);
     int titleX = max(0, (int)(128 - (title.length() * 6)) / 2);
-    _display.setCursor(titleX, 34);
-    _display.print(title);
+    _u8g2.setCursor(titleX, 34);
+    _u8g2.print(title);
 
     // Subtitle / IP / Detail
     int subX = max(0, (int)(128 - (subtitle.length() * 6)) / 2);
-    _display.setCursor(subX, 47);
-    _display.print(subtitle);
+    _u8g2.setCursor(subX, 47);
+    _u8g2.print(subtitle);
 
-    _display.display();
+    _u8g2.sendBuffer();
 }
 
 void DisplayManager::showStatusMessage(const String& line1, const String& line2, const String& line3) {
-    _display.clearDisplay();
-    _display.setTextSize(1);
-    _display.setTextColor(SSD1306_WHITE);
+    _u8g2.clearBuffer();
+    _u8g2.setFont(u8g2_font_6x10_tf);
+    _u8g2.setFontPosTop();
+    _u8g2.setDrawColor(1);
 
-    _display.setCursor(0, 8);
-    _display.println(line1);
+    _u8g2.setCursor(0, 8);
+    _u8g2.print(line1);
 
     if (line2.length() > 0) {
-        _display.setCursor(0, 26);
-        _display.println(line2);
+        _u8g2.setCursor(0, 26);
+        _u8g2.print(line2);
     }
 
     if (line3.length() > 0) {
-        _display.setCursor(0, 44);
-        _display.println(line3);
+        _u8g2.setCursor(0, 44);
+        _u8g2.print(line3);
     }
 
-    _display.display();
+    _u8g2.sendBuffer();
 }
