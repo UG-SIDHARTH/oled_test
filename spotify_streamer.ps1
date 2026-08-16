@@ -197,7 +197,8 @@ try {
                 } else {
                     $durM = [Math]::Floor($trackDurationMs / 60000)
                     $durS = [Math]::Floor(($trackDurationMs % 60000) / 1000)
-                    Write-Host "[Lyrics] Instrumental/No lyrics (Exact duration: {0:D2}:{1:D2})" -f [int]$durM, [int]$durS -ForegroundColor DarkGray
+                    $durFormatted = "{0:D2}:{1:D2}" -f [int]$durM, [int]$durS
+                    Write-Host "[Lyrics] Instrumental/No lyrics (Exact duration: $durFormatted)" -ForegroundColor DarkGray
                 }
             }
 
