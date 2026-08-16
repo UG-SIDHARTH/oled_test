@@ -1,6 +1,19 @@
-# ESP32 Spotify Synced Lyrics Display on OLED (`oled_test`)
+# ESP32 Spotify Synced Lyrics & OLED Animations (`oled_test`)
 
-An ESP32 program that connects to WiFi, monitors your active playback on **Spotify**, fetches real-time synchronized timestamped lyrics from **LRCLIB**, and displays song titles, progress bars, and scrolling synced lyrics on an **SSD1306 128x64 I2C OLED display**.
+An ESP32 program that connects to WiFi, monitors your active playback on **Spotify**, fetches real-time synchronized timestamped lyrics from **LRCLIB**, and displays song titles, animated visualizers, progress bars, and scrolling synced lyrics on an **SSD1306 128x64 I2C OLED display**.
+
+---
+
+## ✨ Features & Display Visuals
+
+- 🎤 **Synchronized Lyrics**: Real-time line-by-line LRC lyrics synced with milliseconds accuracy.
+- 📜 **Smart Text Marquee**: Auto-scrolling text for long lyric lines (> 19 characters) and song titles.
+- 🔮 **Next-Line Preview**: Previews the upcoming lyric line so you can sing along ahead of time.
+- 📊 **Dynamic Audio Visualizer**: 6-band dynamic audio equalizer spectrum bars with realistic peak-hold drop physics.
+- 💿 **Spinning Vinyl Record**: Vector-drawn rotating vinyl record with groove rings, center label, strobe spokes, and tonearm indicator during interludes and standby.
+- 🎵 **Floating Musical Notes**: Animated floating music particles (♪ and ♫) drifting across the screen.
+- 📼 **Retro Cassette Standby & Connecting Screens**: Animated cassette tape reels during WiFi connection and standby.
+- ⚡ **Offline Demo Mode**: Test animations and lyrics immediately without configuring Spotify or WiFi!
 
 ---
 
@@ -23,36 +36,49 @@ An ESP32 program that connects to WiFi, monitors your active playback on **Spoti
 
 ## 📦 Software & Library Dependencies
 
-Open your **Arduino IDE** (or PlatformIO), go to **Library Manager** (`Ctrl+Shift+I` or `Cmd+Shift+I`), and install the following libraries:
+Open your **Arduino IDE**, go to **Library Manager** (`Ctrl+Shift+I` or `Cmd+Shift+I`), and install:
 
 1. **`Adafruit SSD1306`** by Adafruit
 2. **`Adafruit GFX Library`** by Adafruit
-3. **`ArduinoJson`** (version 6.x or 7.x) by Benoit Blanchon
+3. **`ArduinoJson`** (v6.x or v7.x) by Benoit Blanchon
 
 ---
 
 ## 🚀 Quick Start Guide
 
-### Step 1: Set up Spotify Developer App
+### Option A: Quick Offline Demo (Instant Visualizer & Lyrics Test)
+1. Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h).
+2. Set `DEMO_MODE` to `true`:
+   ```cpp
+   #define DEMO_MODE true
+   ```
+3. Flash [`oled_test.ino`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/oled_test.ino) to your ESP32.
+4. Watch *Coldplay - Viva La Vida* play live with synchronized scrolling lyrics, spinning vinyl record, and dancing audio spectrum visualizer!
+
+---
+
+### Option B: Live Spotify Sync Mode
+
+#### Step 1: Spotify Developer App
 1. Go to [Spotify Developer Dashboard](https://developer.spotify.com/dashboard) and log in.
 2. Click **Create an App**.
 3. Set **Redirect URI** to: `http://localhost:8888/callback`
 4. Copy your **Client ID** and **Client Secret**.
 
-### Step 2: Get Your `SPOTIFY_REFRESH_TOKEN`
+#### Step 2: Get `SPOTIFY_REFRESH_TOKEN`
 Run the included Python helper script in your terminal:
-
 ```bash
 python get_refresh_token.py
 ```
-- Enter your **Client ID** and **Client Secret** when prompted.
-- A browser tab will open for Spotify OAuth authorization.
-- Once approved, the terminal will print your `SPOTIFY_REFRESH_TOKEN`.
+- Enter your **Client ID** and **Client Secret**.
+- Authorize your account in the browser.
+- Copy the generated `SPOTIFY_REFRESH_TOKEN`.
 
-### Step 3: Configure Credentials (`config.h`)
-Open [`config.h`](file:///C:/Users/Lenovo/.gemini/antigravity-ide/scratch/oled_test/config.h) and fill in:
-
+#### Step 3: Configure `config.h`
+Open [`config.h`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/config.h) and set:
 ```cpp
+#define DEMO_MODE false
+
 #define WIFI_SSID       "Your_WiFi_SSID"
 #define WIFI_PASSWORD   "Your_WiFi_Password"
 
@@ -61,25 +87,11 @@ Open [`config.h`](file:///C:/Users/Lenovo/.gemini/antigravity-ide/scratch/oled_t
 #define SPOTIFY_REFRESH_TOKEN "your_refresh_token"
 ```
 
-### Step 4: Hardware Test (Optional but Recommended)
-Before flashing the main program, test your OLED hardware connections by flashing the test sketch located at:
-[`examples/hardware_test/hardware_test.ino`](file:///C:/Users/Lenovo/.gemini/antigravity-ide/scratch/oled_test/examples/hardware_test/hardware_test.ino)
-
-### Step 5: Flash `oled_test.ino`
-1. Open [`oled_test.ino`](file:///C:/Users/Lenovo/.gemini/antigravity-ide/scratch/oled_test/oled_test.ino) in Arduino IDE.
-2. Select Board: **ESP32 Dev Module** (or your specific board model).
-3. Select your serial COM Port.
-4. Click **Upload**.
-5. Open Serial Monitor at **115200 baud**.
-6. Play music on Spotify (Phone, PC, or Web Player) — watch synced lyrics display live on the OLED screen!
-
----
-
-## 🎨 Display Features
-
-- **Header**: Song Name + Artist Name with smooth auto-scroll.
-- **Body**: Active line of timecoded synced lyrics automatically updated in real-time.
-- **Footer**: Play/Pause icon indicator (`>` / `||`), animated progress bar, and elapsed time (`MM:SS`).
+#### Step 4: Flash & Enjoy
+1. Open [`oled_test.ino`](file:///c:/Users/Lenovo/Downloads/oled/oled_test/oled_test.ino) in Arduino IDE.
+2. Select Board: **ESP32 Dev Module** and choose your COM Port.
+3. Click **Upload**.
+4. Play any track on your Spotify app (phone/desktop/web) — watch lyrics, progress, and animations sync live on the OLED display!
 
 ---
 

@@ -19,8 +19,23 @@ public:
     // Fetches synced lyrics from LRCLIB API (lrclib.net)
     bool fetchSyncedLyrics(const String& trackName, const String& artistName, const String& albumName, uint32_t durationMs);
 
+    // Loads LRC text directly (e.g. for offline demo mode or pre-cached lyrics)
+    void loadLrcContent(const String& lrcContent);
+
     // Returns active lyric line for current progress in milliseconds
     String getActiveLyric(uint32_t currentProgressMs);
+
+    // Returns next upcoming lyric line for preview
+    String getNextLyric(uint32_t currentProgressMs);
+
+    // Returns index of active lyric line (-1 if before first line or empty)
+    int getActiveLyricIndex(uint32_t currentProgressMs);
+
+    // Returns lyric line by index
+    String getLyricTextByIndex(int index);
+
+    // Returns total count of synced lines loaded
+    size_t getLineCount() const { return _lineCount; }
 
     // Returns true if synced lyrics are loaded for current track
     bool hasLyrics() const { return _lineCount > 0; }

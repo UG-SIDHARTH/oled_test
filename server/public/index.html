@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 OLED Spotify Lyrics & Visualizer Hub</title>
+    <meta name="description" content="Self-hosted web dashboard, Spotify bridge, and real-time 128x64 OLED display emulator for ESP32 with synchronized lyrics and dynamic animations.">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600;700&family=Inter:wght@300;400;500;600;700;800&family=VT323&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body class="theme-dark">
+    <!-- Animated Ambient Background Glows -->
+    <div class="bg-glow bg-glow-1"></div>
+    <div class="bg-glow bg-glow-2"></div>
+    <div class="bg-glow bg-glow-3"></div>
+
+    <div class="app-container">
+        <!-- Top Navbar -->
+        <header class="navbar glass-panel">
+            <div class="nav-brand">
+                <div class="brand-icon">
+                    <span class="pulse-dot"></span>
+                    <svg viewBox="0 0 24 24" width="22" height="22" fill="currentColor">
+                        <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14.5v-9l6 4.5-6 4.5z"/>
+                    </svg>
+                </div>
+                <div class="brand-text">
+                    <h1>OLED Synced Lyrics Hub</h1>
+                    <span class="badge badge-subtle">ESP32 + SSD1306 128x64</span>
+                </div>
+            </div>
+
+            <div class="nav-actions">
+                <div class="status-pill" id="spotify-status-pill">
+                    <span class="status-indicator status-offline" id="status-indicator"></span>
+                    <span id="spotify-status-text">Disconnected</span>
+                </div>
+                <div class="network-badge" id="network-badge" title="Local Server IP">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.4z"/></svg>
+                    <span id="server-ip-display">Connecting...</span>
+                </div>
+                <button class="btn btn-outline btn-sm" id="btn-open-settings" title="Configure Spotify & ESP32">
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.14 12.94c.04-.3.06-.61.06-.94 0-.32-.02-.64-.07-.94l2.03-1.58c.18-.14.23-.41.12-.61l-1.92-3.32c-.12-.22-.37-.29-.59-.22l-2.39.96c-.5-.38-1.03-.7-1.62-.94l-.36-2.54c-.04-.24-.24-.41-.48-.41h-3.84c-.24 0-.43.17-.47.41l-.36 2.54c-.59.24-1.13.57-1.62.94l-2.39-.96c-.22-.08-.47 0-.59.22L2.74 8.87c-.12.21-.08.47.12.61l2.03 1.58c-.05.3-.09.63-.09.94s.02.64.07.94l-2.03 1.58c-.18.14-.23.41-.12.61l1.92 3.32c.12.22.37.29.59.22l2.39-.96c.5.38 1.03.7 1.62.94l.36 2.54c.05.24.24.41.48.41h3.84c.24 0 .44-.17.47-.41l.36-2.54c.59-.24 1.13-.56 1.62-.94l2.39.96c.22.08.47 0 .59-.22l1.92-3.32c.12-.22.07-.47-.12-.61l-2.01-1.58zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6 3.6 1.62 3.6 3.6-1.62 3.6-3.6 3.6z"/></svg>
+                    Settings
+                </button>
+            </div>
+        </header>
+
+        <!-- Main Dashboard Grid -->
+        <main class="dashboard-grid">
+            <!-- Left Column: Realistic OLED Hardware Simulator -->
+            <section class="card glass-panel oled-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <span class="card-icon-tag">0.96" I2C</span>
+                        <h2>SSD1306 OLED Display Simulator</h2>
+                    </div>
+                    <div class="oled-color-picker" id="oled-theme-picker">
+                        <button class="color-dot active" data-color="white" title="Monochrome White"></button>
+                        <button class="color-dot" data-color="cyan" title="Cyberpunk Cyan"></button>
+                        <button class="color-dot" data-color="amber" title="Vintage Amber"></button>
+                        <button class="color-dot" data-color="green" title="Matrix Green"></button>
+                    </div>
+                </div>
+
+                <!-- OLED Hardware Frame Chassis -->
+                <div class="oled-chassis-bezel">
+                    <div class="bezel-screw top-left"></div>
+                    <div class="bezel-screw top-right"></div>
+                    <div class="bezel-screw bottom-left"></div>
+                    <div class="bezel-screw bottom-right"></div>
+                    
+                    <div class="oled-header-label">
+                        <span>SSD1306 128x64 OLED</span>
+                        <span class="oled-pin-badge">I2C: 0x3C</span>
+                    </div>
+
+                    <!-- Canvas Screen -->
+                    <div class="screen-viewport oled-theme-white" id="screen-viewport">
+                        <canvas id="oled-canvas" width="256" height="128"></canvas>
+                        <div class="pixel-matrix-overlay"></div>
+                    </div>
+
+                    <div class="chassis-footer-pins">
+                        <span class="pin-label">GND</span>
+                        <span class="pin-label">VCC</span>
+                        <span class="pin-label">SCL (22)</span>
+                        <span class="pin-label">SDA (21)</span>
+                    </div>
+                </div>
+
+                <!-- Simulator Quick Controls -->
+                <div class="simulator-controls">
+                    <div class="control-row">
+                        <button class="btn btn-primary" id="btn-toggle-demo">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 14.5v-9l6 4.5-6 4.5z"/></svg>
+                            <span id="demo-btn-label">Run Demo Mode</span>
+                        </button>
+                        <button class="btn btn-secondary" id="btn-switch-demo-track" title="Switch Demo Song">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M6 18l8.5-6L6 6v12zM16 6v12h2V6h-2z"/></svg>
+                            Next Demo Track
+                        </button>
+                    </div>
+
+                    <div class="display-modes-bar">
+                        <span class="modes-label">Live Animations:</span>
+                        <div class="chips-group">
+                            <span class="chip active">6-Band Equalizer</span>
+                            <span class="chip active">Spinning Vinyl</span>
+                            <span class="chip active">Floating Notes</span>
+                            <span class="chip active">Lyric Marquee</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Right Column: Now Playing & Synced Lyrics Stream -->
+            <section class="card glass-panel now-playing-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <span class="card-icon-tag pulse-tag">LIVE</span>
+                        <h2>Now Playing & Synced Lyrics</h2>
+                    </div>
+                    <span class="badge badge-success" id="sync-source-badge">Spotify Connected</span>
+                </div>
+
+                <!-- Track Info Header -->
+                <div class="track-hero-widget">
+                    <div class="album-art-wrapper">
+                        <img id="album-art-img" src="https://images.unsplash.com/photo-1614613535308-eb5fbd3d2c17?w=200&auto=format&fit=crop&q=80" alt="Album Cover">
+                        <div class="spinning-disc-vinyl" id="vinyl-disc-anim"></div>
+                    </div>
+
+                    <div class="track-details">
+                        <h3 class="track-title" id="track-name-display">Viva La Vida</h3>
+                        <p class="track-artist" id="artist-name-display">Coldplay</p>
+                        <p class="track-album" id="album-name-display">Viva La Vida or Death and All His Friends</p>
+
+                        <div class="progress-bar-container">
+                            <div class="progress-track">
+                                <div class="progress-fill" id="web-progress-fill" style="width: 35%;"></div>
+                            </div>
+                            <div class="time-labels">
+                                <span id="time-elapsed-label">01:12</span>
+                                <span id="time-duration-label">04:02</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Synced Lyrics Karaoke Window -->
+                <div class="lyrics-karaoke-container">
+                    <div class="lyrics-toolbar">
+                        <div class="lyrics-title-wrapper">
+                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M12 3v10.55c-.59-.34-1.27-.55-2-.55-2.21 0-4 1.79-4 4s1.79 4 4 4 4-1.79 4-4V7h4V3h-6z"/></svg>
+                            <span>Synchronized LRCLIB Stream</span>
+                        </div>
+                        <span class="badge badge-subtle" id="lyrics-count-badge">24 Lines Loaded</span>
+                    </div>
+
+                    <div class="lyrics-scroll-viewport" id="lyrics-list-container">
+                        <!-- Populated dynamically by app.js -->
+                        <div class="lyric-line-item past-line">[00:13.50] I used to rule the world</div>
+                        <div class="lyric-line-item past-line">[00:17.20] Seas would rise when I gave the word</div>
+                        <div class="lyric-line-item active-line">
+                            <span class="lyric-note-glyph">♪</span>
+                            <span>[00:21.00] Now in the morning I sleep alone</span>
+                        </div>
+                        <div class="lyric-line-item upcoming-line">[00:25.30] Sweep the streets I used to own</div>
+                        <div class="lyric-line-item upcoming-line">[00:29.50] I used to roll the dice</div>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <!-- Bottom Grid: Quick Setup & ESP32 Bridge Center -->
+        <section class="bottom-grid">
+            <!-- Spotify Web Login Card -->
+            <div class="card glass-panel setup-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <span class="card-icon-tag">1-CLICK</span>
+                        <h3>Connect Spotify Account</h3>
+                    </div>
+                </div>
+                <p class="card-desc">Authorize your Spotify account with your Client ID and Client Secret in one click.</p>
+
+                <form id="spotify-auth-form" class="auth-form-grid">
+                    <div class="form-group">
+                        <label for="input-client-id">Spotify Client ID</label>
+                        <input type="text" id="input-client-id" placeholder="Paste your Client ID here..." autocomplete="off">
+                    </div>
+                    <div class="form-group">
+                        <label for="input-client-secret">Spotify Client Secret</label>
+                        <input type="password" id="input-client-secret" placeholder="Paste your Client Secret here..." autocomplete="off">
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" class="btn btn-spotify" id="btn-spotify-login">
+                            <svg viewBox="0 0 24 24" width="18" height="18" fill="currentColor"><path d="M12 2C6.477 2 2 6.477 2 12c0 5.524 4.477 10 10 10s10-4.476 10-10c0-5.523-4.477-10-10-10zm4.587 14.425a.627.627 0 0 1-.86.208c-2.355-1.44-5.32-1.764-8.814-.967a.625.625 0 1 1-.28-1.22c3.818-.87 7.098-.506 9.746 1.118.29.178.384.56.208.86zm1.225-2.723a.784.784 0 0 1-1.077.26c-2.695-1.657-6.804-2.138-9.99-1.171a.784.784 0 1 1-.453-1.503c3.633-1.103 8.163-.568 11.26 1.338.367.226.485.71.26 1.076zm.105-2.835C14.69 8.94 8.784 8.745 5.38 9.78a.94.94 0 1 1-.55-1.8c3.905-1.185 10.435-.953 14.28 1.332a.94.94 0 0 1-.192 1.555z"/></svg>
+                            Login with Spotify
+                        </button>
+                        <button type="button" class="btn btn-outline" id="btn-save-credentials">Save Tokens</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- ESP32 Pinout & Config Exporter -->
+            <div class="card glass-panel esp32-card">
+                <div class="card-header">
+                    <div class="card-title-group">
+                        <span class="card-icon-tag">FIRMWARE</span>
+                        <h3>ESP32 Hardware & Config Exporter</h3>
+                    </div>
+                </div>
+
+                <div class="esp-pinout-compact">
+                    <div class="pin-row"><span class="pin-badge">SDA</span> ➔ GPIO 21</div>
+                    <div class="pin-row"><span class="pin-badge">SCL</span> ➔ GPIO 22</div>
+                    <div class="pin-row"><span class="pin-badge">VCC</span> ➔ 3.3V</div>
+                    <div class="pin-row"><span class="pin-badge">GND</span> ➔ GND</div>
+                </div>
+
+                <div class="export-box">
+                    <p class="export-text">Download customized <code>config.h</code> with your configured WiFi, tokens, and server IP:</p>
+                    <a href="/api/generate-config" class="btn btn-outline btn-block" id="btn-download-config">
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor"><path d="M19.35 10.04C18.67 6.59 15.64 4 12 4 9.11 4 6.6 5.64 5.35 8.04 2.34 8.36 0 10.91 0 14c0 3.31 2.69 6 6 6h13c2.76 0 5-2.24 5-5 0-2.64-2.05-4.78-4.65-4.96zM17 13l-5 5-5-5h3V9h4v4h3z"/></svg>
+                        Download config.h for ESP32
+                    </a>
+                </div>
+            </div>
+        </section>
+
+        <!-- Toast Notifications Container -->
+        <div id="toast-container" class="toast-container"></div>
+    </div>
+
+    <!-- Application Script -->
+    <script src="app.js"></script>
+</body>
+</html>

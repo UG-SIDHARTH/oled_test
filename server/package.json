@@ -1,0 +1,20 @@
+{
+  "name": "esp32-oled-spotify-server",
+  "version": "1.0.0",
+  "description": "Self-hosted Web Dashboard & Bridge Server for ESP32 OLED Spotify Synced Lyrics Display",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "esp32",
+    "oled",
+    "spotify",
+    "lyrics",
+    "visualizer",
+    "iot"
+  ],
+  "author": "Antigravity",
+  "license": "MIT"
+}

@@ -1,5 +1,9 @@
 # Secrets and Configuration
 config.h
+.env
+*.env
+credentials.json
+node_modules/
 
 # Build artifacts
 .pio/
@@ -11,3 +15,4 @@ build/
 # OS files
 .DS_Store
 Thumbs.db
+

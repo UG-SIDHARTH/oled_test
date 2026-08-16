@@ -25,6 +25,10 @@ String LyricsClient::urlEncode(const String& str) {
     return encoded;
 }
 
+void LyricsClient::loadLrcContent(const String& lrcContent) {
+    parseLRC(lrcContent);
+}
+
 bool LyricsClient::fetchSyncedLyrics(const String& trackName, const String& artistName, const String& albumName, uint32_t durationMs) {
     clearLyrics();
     Serial.printf("[Lyrics] Fetching lyrics for '%s' by '%s'...\n", trackName.c_str(), artistName.c_str());
@@ -79,7 +83,7 @@ void LyricsClient::parseLRC(const String& lrcContent) {
     int startIdx = 0;
     int endIdx = 0;
 
-    while (endIdx < lrcContent.length() && _lineCount < MAX_LYRIC_LINES) {
+    while (startIdx < lrcContent.length() && _lineCount < MAX_LYRIC_LINES) {
         endIdx = lrcContent.indexOf('\n', startIdx);
         if (endIdx == -1) endIdx = lrcContent.length();
 
@@ -106,7 +110,9 @@ void LyricsClient::parseLRC(const String& lrcContent) {
                 if (dotIdx != -1 && dotIdx > colonIdx) {
                     secs = timeStr.substring(colonIdx + 1, dotIdx).toInt();
                     String msStr = timeStr.substring(dotIdx + 1);
-                    if (msStr.length() == 2) {
+                    if (msStr.length() == 1) {
+                        ms = msStr.toInt() * 100;
+                    } else if (msStr.length() == 2) {
                         ms = msStr.toInt() * 10;
                     } else if (msStr.length() >= 3) {
                         ms = msStr.substring(0, 3).toInt();
@@ -116,6 +122,8 @@ void LyricsClient::parseLRC(const String& lrcContent) {
                 }
 
                 uint32_t totalMs = (mins * 60 + secs) * 1000 + ms;
+                
+                // Only store lines with meaningful timestamp
                 _lyrics[_lineCount].timestampMs = totalMs;
                 _lyrics[_lineCount].text = textStr;
                 _lineCount++;
@@ -126,17 +134,45 @@ void LyricsClient::parseLRC(const String& lrcContent) {
     }
 }
 
+int LyricsClient::getActiveLyricIndex(uint32_t currentProgressMs) {
+    if (_lineCount == 0) return -1;
+    
+    int activeIdx = -1;
+    for (size_t i = 0; i < _lineCount; i++) {
+        if (_lyrics[i].timestampMs <= currentProgressMs) {
+            activeIdx = (int)i;
+        } else {
+            break; // Sorted chronologically
+        }
+    }
+    return activeIdx;
+}
+
 String LyricsClient::getActiveLyric(uint32_t currentProgressMs) {
     if (_lineCount == 0) return "No Synced Lyrics";
 
-    String activeLine = "";
-    for (size_t i = 0; i < _lineCount; i++) {
-        if (_lyrics[i].timestampMs <= currentProgressMs) {
-            activeLine = _lyrics[i].text;
-        } else {
-            break; // Timestamps are ordered chronologically
-        }
+    int idx = getActiveLyricIndex(currentProgressMs);
+    if (idx >= 0 && idx < (int)_lineCount) {
+        String t = _lyrics[idx].text;
+        return t.length() > 0 ? t : "♪ ♪ ♪";
     }
+    return "...";
+}
 
-    return activeLine.length() > 0 ? activeLine : "...";
+String LyricsClient::getNextLyric(uint32_t currentProgressMs) {
+    if (_lineCount == 0) return "";
+
+    int idx = getActiveLyricIndex(currentProgressMs);
+    int nextIdx = idx + 1;
+    if (nextIdx >= 0 && nextIdx < (int)_lineCount) {
+        return _lyrics[nextIdx].text;
+    }
+    return "";
+}
+
+String LyricsClient::getLyricTextByIndex(int index) {
+    if (index >= 0 && index < (int)_lineCount) {
+        return _lyrics[index].text;
+    }
+    return "";
 }
