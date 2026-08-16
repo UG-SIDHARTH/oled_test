@@ -58,6 +58,9 @@ bool LyricsClient::fetchSyncedLyrics(const String& trackName, const String& arti
         DeserializationError error = deserializeJson(doc, payload);
 
         if (!error) {
+            if (doc.containsKey("duration")) {
+                _trackDurationMs = doc["duration"].as<uint32_t>() * 1000;
+            }
             String syncedLyrics = doc["syncedLyrics"].as<String>();
             if (syncedLyrics.length() > 0 && syncedLyrics != "null") {
                 parseLRC(syncedLyrics);

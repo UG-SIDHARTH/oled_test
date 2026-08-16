@@ -196,6 +196,9 @@ void loop() {
                     currentTrack.albumName,
                     currentTrack.durationMs
                 );
+                if (lyrics.getTrackDurationMs() > 0) {
+                    currentTrack.durationMs = lyrics.getTrackDurationMs();
+                }
             }
         }
     }

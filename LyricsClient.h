@@ -40,12 +40,16 @@ public:
     // Returns true if synced lyrics are loaded for current track
     bool hasLyrics() const { return _lineCount > 0; }
 
+    // Returns track duration in milliseconds if found from LRCLIB
+    uint32_t getTrackDurationMs() const { return _trackDurationMs; }
+
     // Clears stored lyrics
     void clearLyrics();
 
 private:
     LyricLine _lyrics[MAX_LYRIC_LINES];
     size_t _lineCount = 0;
+    uint32_t _trackDurationMs = 0;
 
     void parseLRC(const String& lrcContent);
     String urlEncode(const String& str);
