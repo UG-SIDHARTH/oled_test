@@ -53,6 +53,7 @@ public:
     // Direct draw helpers for animations
     void drawEqualizer(int x, int y, int width, int height, bool isPlaying);
     void drawSpinningVinyl(int centerX, int centerY, int radius, uint8_t angleStep);
+    void drawDancingCharacter(int x, int y, uint8_t animStep, bool isPlaying);
     void drawMiniCassette(int x, int y, uint8_t animFrame);
     void updateAndDrawFloatingNotes(int minX, int maxX, int minY, int maxY, bool isPlaying);
 

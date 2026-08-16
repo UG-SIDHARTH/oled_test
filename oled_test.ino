@@ -172,8 +172,9 @@ void loop() {
         lastFrameMs = currentMs;
 
         if (currentTrack.hasData && currentTrack.isPlaying) {
-            String activeLyric = lyrics.getActiveLyric(estimatedProgressMs);
-            String nextLyric = lyrics.getNextLyric(estimatedProgressMs);
+            String activeLyric = btManager.hasLyrics() ? btManager.getActiveLyric() : lyrics.getActiveLyric(estimatedProgressMs);
+            String nextLyric = btManager.hasLyrics() ? btManager.getNextLyric() : lyrics.getNextLyric(estimatedProgressMs);
+            bool hasLyrics = btManager.hasLyrics() || lyrics.hasLyrics();
 
             display.renderPlayer(
                 currentTrack.trackName,
@@ -183,7 +184,7 @@ void loop() {
                 estimatedProgressMs,
                 currentTrack.durationMs,
                 currentTrack.isPlaying,
-                lyrics.hasLyrics()
+                hasLyrics
             );
         } else {
 #if USE_BLUETOOTH_MODE

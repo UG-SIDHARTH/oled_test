@@ -12,6 +12,8 @@ struct BTPlaybackState {
     String trackName;
     String artistName;
     String albumName;
+    String activeLyric;
+    String nextLyric;
     uint32_t durationMs;
     uint32_t progressMs;
     uint32_t lastProgressUpdateMs;
@@ -33,10 +35,13 @@ public:
     bool hasNewTrack();
     void clearNewTrackFlag();
 
-    // Track metadata
+    // Track metadata & live lyrics
     String getTrackName();
     String getArtistName();
     String getAlbumName();
+    String getActiveLyric();
+    String getNextLyric();
+    bool hasLyrics();
     uint32_t getDurationMs();
     uint32_t getProgressMs();
 

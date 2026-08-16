@@ -81,9 +81,18 @@ void BluetoothManager::processMessage(String msg) {
             String newTrack = doc["track"] | doc["title"] | "";
             String newArtist = doc["artist"] | "";
             String newAlbum = doc["album"] | "";
+            String activeLyric = doc["activeLyric"] | doc["lyric"] | "";
+            String nextLyric = doc["nextLyric"] | "";
             uint32_t newDuration = doc["duration"] | 0;
             uint32_t newProgress = doc["progress"] | 0;
             bool isPlaying = doc.containsKey("playing") ? doc["playing"].as<bool>() : true;
+
+            if (activeLyric.length() > 0) {
+                _state.activeLyric = activeLyric;
+            }
+            if (nextLyric.length() > 0) {
+                _state.nextLyric = nextLyric;
+            }
 
             if (newTrack.length() > 0 && newTrack != _state.trackName) {
                 _state.trackName = newTrack;
@@ -173,6 +182,18 @@ String BluetoothManager::getArtistName() {
 
 String BluetoothManager::getAlbumName() {
     return _state.albumName;
+}
+
+String BluetoothManager::getActiveLyric() {
+    return _state.activeLyric;
+}
+
+String BluetoothManager::getNextLyric() {
+    return _state.nextLyric;
+}
+
+bool BluetoothManager::hasLyrics() {
+    return _state.activeLyric.length() > 0;
 }
 
 uint32_t BluetoothManager::getDurationMs() {
