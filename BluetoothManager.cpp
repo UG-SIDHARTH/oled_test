@@ -64,11 +64,11 @@ bool BluetoothManager::begin(const char* deviceName) {
     // Register GAP callback for pairing & authentication
     esp_bt_gap_register_callback(BluetoothManager::handleGAPEvent);
 
-    // Set Class of Device (CoD) as Audio/Video Loudspeaker / Speaker
-    // This is mandatory for phones (iOS/Android) and PCs to list the device in Bluetooth audio scans!
+    // Set Class of Device (CoD) to Audio / Stereo Headphones (0x240404)
+    // This is required for iOS (iPhone/iPad) and Windows to immediately recognize and list the device
     esp_bt_cod_t cod;
     cod.major = ESP_BT_COD_MAJOR_DEV_AV;
-    cod.minor = 0x05; // Audio Loudspeaker / Speaker minor class
+    cod.minor = 0x06; // 0x06 = Headphones / Stereo Audio Sink (fully recognized by iOS)
     cod.service = ESP_BT_COD_SRVC_AUDIO | ESP_BT_COD_SRVC_RENDERING;
     esp_bt_gap_set_cod(cod, ESP_BT_INIT_COD);
 

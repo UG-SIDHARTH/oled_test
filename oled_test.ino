@@ -137,13 +137,18 @@ void setup() {
 #elif USE_BLUETOOTH_MODE
     Serial.println("[Mode] Running in BLUETOOTH MODE (No Spotify Premium needed)");
     
-    // Initialize Bluetooth Media Receiver FIRST so it broadcasts immediately on boot
+    // Initialize Bluetooth Media Receiver
     display.renderConnectingScreen("Starting Bluetooth", BLUETOOTH_DEVICE_NAME, 1);
     btManager.begin(BLUETOOTH_DEVICE_NAME);
-    delay(600);
+    delay(300);
 
-    // Connect to WiFi for LRCLIB synced lyrics
-    connectWiFi();
+    // Show pairing screen on OLED
+    display.renderConnectingScreen("Pair Bluetooth", BLUETOOTH_DEVICE_NAME, 0);
+
+    // Start WiFi in background for LRCLIB lyrics without blocking Bluetooth radio
+    WiFi.mode(WIFI_STA);
+    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    Serial.println("[WiFi] Background connection initiated...");
 
 #else
     // Connect to WiFi for Spotify Web API
