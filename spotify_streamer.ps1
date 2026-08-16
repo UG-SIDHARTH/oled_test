@@ -1,7 +1,8 @@
 # ==============================================================================
-# ESP32 Spotify Live Streamer + Synced Lyrics & Dance Engine for Windows
+# ESP32 Spotify Live Streamer + Automatic Real-Time Timeline & Synced Lyrics
 # ==============================================================================
-# Streams Spotify playback + live LRCLIB synced lyrics to ESP32 over COM13 / BT!
+# Uses Windows System Media Controls (GSMTC) for 100% AUTOMATIC live timeline sync!
+# Any scrub, skip, pause, or song change syncs instantly with ZERO manual input!
 # ==============================================================================
 
 param (
@@ -12,16 +13,27 @@ param (
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " 🎵 ESP32 Spotify Live Streamer + Synced Lyrics" -ForegroundColor Green
+Write-Host " 🎵 ESP32 Spotify Live Streamer (100% Automatic Live Sync)" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " Target Port: $($Port) at $($BaudRate) baud" -ForegroundColor Yellow
+
+# Initialize WinRT Media Manager
+Add-Type -AssemblyName System.Runtime.WindowsRuntime
+[Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager, Windows.Media, ContentType = WindowsRuntime] | Out-Null
+
+$asTaskGeneric = [System.WindowsRuntimeSystemExtensions].GetMethods() | Where-Object { $_.Name -eq 'AsTask' -and $_.GetParameters().Count -eq 1 -and $_.IsGenericMethod } | Select-Object -First 1
+$asTaskMgr = $asTaskGeneric.MakeGenericMethod([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager])
+$asTaskProp = $asTaskGeneric.MakeGenericMethod([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties])
+
+$mgrTask = $asTaskMgr.Invoke($null, @([Windows.Media.Control.GlobalSystemMediaTransportControlsSessionManager]::RequestAsync()))
+$mgrTask.Wait()
+$mediaManager = $mgrTask.Result
 
 try {
     $serial = New-Object System.IO.Ports.SerialPort $Port, $BaudRate, None, 8, One
     $serial.Open()
     Write-Host "[Connected] Successfully opened $($Port)!" -ForegroundColor Green
-    Write-Host "[Running] Listening to Spotify... Hit PLAY on any song!`n" -ForegroundColor Cyan
-    Write-Host " [Sync Keys] '1'-'9': Jump to 1:00, 2:00 | 'F'/'+': +5s | 'B'/'-': -5s | 'R': 0:00`n" -ForegroundColor DarkGray
+    Write-Host "[Running] Connected to Windows Media & Spotify! Play any song!`n" -ForegroundColor Cyan
 } catch {
     Write-Host "[Error] Could not open $($Port). Details: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Please ensure Arduino Serial Monitor is CLOSED so $($Port) is free." -ForegroundColor Yellow
@@ -31,28 +43,11 @@ try {
 $lastTrackKey = ""
 $trackDurationMs = 180000
 $lrcLines = @()
-$accumulatedElapsedMs = 0
-$lastTickTime = [DateTime]::UtcNow
-$syncOffsetMs = 0
-$waitingCounter = 0
 
 function Clean-Title ($title) {
     $cleaned = $title -replace '\s*[\(\[](feat|ft|with|remix|remastered|live|official|deluxe|bonus|edit).*?[\)\]]', ''
     $cleaned = $cleaned -replace '\s*-\s*(Remastered|Live|Radio Edit|Deluxe|Single Version|Mono).*$', ''
     return $cleaned.Trim()
-}
-
-function Get-Exact-Duration ($trackName, $artistName) {
-    try {
-        $cleanTrack = Clean-Title $trackName
-        $query = [Uri]::EscapeDataString("$artistName $cleanTrack")
-        $url = "https://itunes.apple.com/search?term=$query&entity=song&limit=1"
-        $res = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 3 -ErrorAction Stop
-        if ($res.results -and $res.results.Count -gt 0 -and $res.results[0].trackTimeMillis) {
-            return [int]$res.results[0].trackTimeMillis
-        }
-    } catch {}
-    return 180000
 }
 
 function Fetch-Lyrics ($trackName, $artistName) {
@@ -65,11 +60,10 @@ function Fetch-Lyrics ($trackName, $artistName) {
         $encodedArtist = [Uri]::EscapeDataString($cleanArtist)
         $url = "https://lrclib.net/api/get?track_name=$encodedTrack&artist_name=$encodedArtist"
         
-        $res = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 4 -Headers @{ "User-Agent" = "ESP32-Spotify-OLED/1.0" } -ErrorAction Stop
+        $res = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 3 -Headers @{ "User-Agent" = "ESP32-Spotify-OLED/1.0" } -ErrorAction Stop
         if ($res -and $res.syncedLyrics) {
             $parsed = Parse-LRC $res.syncedLyrics
             if ($parsed.Count -gt 0) {
-                if ($res.duration) { $script:trackDurationMs = [int]($res.duration * 1000) }
                 return $parsed
             }
         }
@@ -79,13 +73,12 @@ function Fetch-Lyrics ($trackName, $artistName) {
     try {
         $query = [Uri]::EscapeDataString("$cleanTrack $cleanArtist")
         $url = "https://lrclib.net/api/search?q=$query"
-        $results = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 4 -Headers @{ "User-Agent" = "ESP32-Spotify-OLED/1.0" } -ErrorAction Stop
+        $results = Invoke-RestMethod -Uri $url -Method Get -TimeoutSec 3 -Headers @{ "User-Agent" = "ESP32-Spotify-OLED/1.0" } -ErrorAction Stop
         if ($results -and $results.Count -gt 0) {
             foreach ($item in $results) {
                 if ($item.syncedLyrics) {
                     $parsed = Parse-LRC $item.syncedLyrics
                     if ($parsed.Count -gt 0) {
-                        if ($item.duration) { $script:trackDurationMs = [int]($item.duration * 1000) }
                         return $parsed
                     }
                 }
@@ -93,8 +86,6 @@ function Fetch-Lyrics ($trackName, $artistName) {
         }
     } catch {}
 
-    # 3. If no lyrics, query Apple Music API for exact track duration
-    $script:trackDurationMs = Get-Exact-Duration $trackName $artistName
     return @()
 }
 
@@ -120,115 +111,82 @@ function Parse-LRC ($lrcContent) {
 
 try {
     while ($true) {
-        $now = [DateTime]::UtcNow
-        
-        # Check for keyboard sync adjustments (Method 2: Instant Jump)
-        if ([Console]::KeyAvailable) {
-            $keyInfo = [Console]::ReadKey($true)
-            $keyChar = $keyInfo.KeyChar
-            $key = $keyInfo.Key
+        $track = ""
+        $artist = ""
+        $currentPosMs = 0
+        $durationMs = 0
+        $isPlaying = $false
 
-            if ($key -eq [ConsoleKey]::R -or $keyChar -eq '0' -or $key -eq [ConsoleKey]::Home) {
-                $accumulatedElapsedMs = 0
-                $syncOffsetMs = 0
-                Write-Host "`n[Sync] Reset progress to 0:00" -ForegroundColor Magenta
-            } elseif ($keyChar -ge '1' -and $keyChar -le '9') {
-                # Press '1' -> 1:00, '2' -> 2:00, '3' -> 3:00
-                $minNum = [int]("$keyChar")
-                $accumulatedElapsedMs = ($minNum * 60000)
-                $syncOffsetMs = 0
-                Write-Host "`n[Sync] Jumped to $($minNum):00" -ForegroundColor Magenta
-            } elseif ($key -eq [ConsoleKey]::RightArrow -or $keyChar -eq 'f' -or $keyChar -eq 'F' -or $keyChar -eq '+') {
-                $syncOffsetMs += 5000
-                Write-Host "`n[Sync] Fast-Forward +5s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($key -eq [ConsoleKey]::UpArrow) {
-                $syncOffsetMs += 15000
-                Write-Host "`n[Sync] Big Jump +15s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($key -eq [ConsoleKey]::LeftArrow -or $keyChar -eq 'b' -or $keyChar -eq 'B' -or $keyChar -eq '-') {
-                $syncOffsetMs -= 5000
-                Write-Host "`n[Sync] Rewound -5s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($key -eq [ConsoleKey]::DownArrow) {
-                $syncOffsetMs -= 15000
-                Write-Host "`n[Sync] Big Rewind -15s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($keyChar -eq ']') {
-                $syncOffsetMs += 1000
-                Write-Host "`n[Sync] +1s" -ForegroundColor Magenta
-            } elseif ($keyChar -eq '[') {
-                $syncOffsetMs -= 1000
-                Write-Host "`n[Sync] -1s" -ForegroundColor Magenta
-            }
+        # 1. Query Windows Media Session (GSMTC) for 100% exact playback state
+        if ($mediaManager) {
+            try {
+                $session = $mediaManager.GetCurrentSession()
+                if ($session) {
+                    $propOp = $session.TryGetMediaPropertiesAsync()
+                    $pTask = $asTaskProp.Invoke($null, @($propOp))
+                    $pTask.Wait()
+                    $props = $pTask.Result
+
+                    $timeline = $session.GetTimelineProperties()
+                    $playback = $session.GetPlaybackInfo()
+
+                    if ($props -and $props.Title -ne "") {
+                        $track = $props.Title.Trim()
+                        $artist = $props.Artist.Trim()
+                        $currentPosMs = [int]($timeline.Position.TotalMilliseconds)
+                        $durationMs = [int]($timeline.EndTime.TotalMilliseconds)
+                        $isPlaying = ($playback.PlaybackStatus -eq [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus]::Playing)
+                    }
+                }
+            } catch {}
         }
 
-        # 1. Search for active Spotify desktop window
-        $activeWindowText = ""
-        $spotifyProcs = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" }
-        foreach ($p in $spotifyProcs) {
-            $t = $p.MainWindowTitle.Trim()
-            if ($t -ne "" -and $t -ne "Spotify" -and $t -ne "Spotify Premium" -and $t -ne "Spotify Free") {
-                $activeWindowText = $t
-                break
-            }
-        }
-
-        # 2. Search browser windows if Spotify web is used
-        if ($activeWindowText -eq "") {
-            $webProcs = Get-Process chrome, msedge, brave, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'Spotify' -or $_.MainWindowTitle -match ' - ' }
-            foreach ($p in $webProcs) {
-                if ($p.MainWindowTitle -match '^(.*?)\s+-\s+(.*?)\s*[-|•]\s*Spotify') {
-                    $activeWindowText = "$($matches[1]) - $($matches[2])"
+        # 2. Fallback to process scanning if media session is idle
+        if ($track -eq "") {
+            $spotifyProcs = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" }
+            foreach ($p in $spotifyProcs) {
+                $t = $p.MainWindowTitle.Trim()
+                if ($t -ne "" -and $t -ne "Spotify" -and $t -ne "Spotify Premium" -and $t -ne "Spotify Free") {
+                    if ($t -match '^(.*?)\s+-\s+(.*)$') {
+                        $artist = $matches[1].Trim()
+                        $track = $matches[2].Trim()
+                    } else {
+                        $track = $t
+                    }
+                    $isPlaying = $true
                     break
                 }
             }
         }
 
-        if ($activeWindowText -ne "") {
-            # Parse "Artist - Track" (Standard Spotify format)
-            $artist = ""
-            $track = $activeWindowText
-            if ($activeWindowText -match '^(.*?)\s+-\s+(.*)$') {
-                $artist = $matches[1].Trim()
-                $track = $matches[2].Trim()
-            }
-
+        if ($track -ne "") {
             $trackKey = "$artist - $track"
 
             # Track changed
             if ($trackKey -ne $lastTrackKey) {
                 $lastTrackKey = $trackKey
-                $accumulatedElapsedMs = 0
-                $syncOffsetMs = 0
-                $lastTickTime = $now
                 Write-Host "`n[Now Playing ▶] $trackKey" -ForegroundColor Green
 
-                Write-Host "[Lyrics] Fetching metadata & lyrics..." -ForegroundColor Yellow
+                Write-Host "[Lyrics] Fetching synced lyrics..." -ForegroundColor Yellow
                 $lrcLines = Fetch-Lyrics $track $artist
                 if ($lrcLines.Count -gt 0) {
                     Write-Host "[Lyrics] Loaded $($lrcLines.Count) synced lines!" -ForegroundColor Green
                 } else {
-                    $durM = [Math]::Floor($trackDurationMs / 60000)
-                    $durS = [Math]::Floor(($trackDurationMs % 60000) / 1000)
-                    $durFormatted = "{0:D2}:{1:D2}" -f [int]$durM, [int]$durS
-                    Write-Host "[Lyrics] Instrumental/No lyrics (Exact duration: $durFormatted)" -ForegroundColor DarkGray
+                    Write-Host "[Lyrics] Instrumental / No lyrics found" -ForegroundColor DarkGray
                 }
             }
 
-            # Accumulate elapsed playback time accurately
-            $deltaMs = ($now - $lastTickTime).TotalMilliseconds
-            $lastTickTime = $now
-            $accumulatedElapsedMs += $deltaMs
-
-            $effectiveTimeMs = [Math]::Max(0, [int]($accumulatedElapsedMs + $syncOffsetMs))
-            if ($trackDurationMs -gt 0 -and $effectiveTimeMs -gt $trackDurationMs) {
-                $effectiveTimeMs = $trackDurationMs
+            if ($durationMs -gt 0) {
+                $trackDurationMs = $durationMs
             }
 
-            # Find active and next lyric
+            # Find active and next lyric for exact current playback position
             $activeLyric = ""
             $nextLyric = ""
             if ($lrcLines.Count -gt 0) {
                 $activeIdx = -1
                 for ($i = 0; $i -lt $lrcLines.Count; $i++) {
-                    if ($lrcLines[$i].timeMs -le $effectiveTimeMs) {
+                    if ($lrcLines[$i].timeMs -le $currentPosMs) {
                         $activeIdx = $i
                     } else {
                         break
@@ -242,27 +200,27 @@ try {
                     }
                 } else {
                     $firstLyricMs = $lrcLines[0].timeMs
-                    $remSec = [Math]::Max(0, [int](($firstLyricMs - $effectiveTimeMs) / 1000))
+                    $remSec = [Math]::Max(0, [int](($firstLyricMs - $currentPosMs) / 1000))
                     $activeLyric = "Intro (${remSec}s)"
                     $nextLyric = $lrcLines[0].text
                 }
             }
 
-            # Send full JSON payload to ESP32
+            # Send live packet to ESP32
             $payloadObj = [ordered]@{
                 track = $track
                 artist = $artist
                 activeLyric = $activeLyric
                 nextLyric = $nextLyric
                 duration = $trackDurationMs
-                progress = $effectiveTimeMs
-                playing = $true
+                progress = $currentPosMs
+                playing = $isPlaying
             }
             $jsonStr = $payloadObj | ConvertTo-Json -Compress
             $serial.WriteLine("$jsonStr`n")
 
-            $mins = [Math]::Floor($effectiveTimeMs / 60000)
-            $secs = [Math]::Floor(($effectiveTimeMs % 60000) / 1000)
+            $mins = [Math]::Floor($currentPosMs / 60000)
+            $secs = [Math]::Floor(($currentPosMs % 60000) / 1000)
             $timeStr = "{0:D2}:{1:D2}" -f [int]$mins, [int]$secs
 
             $durMins = [Math]::Floor($trackDurationMs / 60000)
@@ -272,16 +230,10 @@ try {
             Write-Host -NoNewline "`r[$timeStr / $durStr] > $activeLyric                                " -ForegroundColor Cyan
 
         } else {
-            $lastTickTime = $now
             if ($lastTrackKey -ne "") {
                 $lastTrackKey = ""
                 Write-Host "`n[Paused ⏸] Spotify paused" -ForegroundColor Yellow
                 $serial.WriteLine("PAUSE`n")
-            } else {
-                $waitingCounter++
-                if ($waitingCounter % 15 -eq 0) {
-                    Write-Host -NoNewline "`r[Waiting] Spotify is paused or idle... Hit PLAY on any song in Spotify!   " -ForegroundColor DarkGray
-                }
             }
         }
 
