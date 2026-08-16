@@ -21,7 +21,7 @@ try {
     $serial.Open()
     Write-Host "[Connected] Successfully opened $($Port)!" -ForegroundColor Green
     Write-Host "[Running] Listening to Spotify... Play any song on Spotify!`n" -ForegroundColor Cyan
-    Write-Host " [Controls] Press 'R' to reset sync to 0:00 | '+' / '-' to nudge sync`n" -ForegroundColor DarkGray
+    Write-Host " [Controls] 'R': Reset 0:00 | 'F' / '+': +5s | 'B' / '-': -5s`n" -ForegroundColor DarkGray
 } catch {
     Write-Host "[Error] Could not open $($Port). Details: $($_.Exception.Message)" -ForegroundColor Red
     Write-Host "Please ensure Arduino Serial Monitor is CLOSED so $($Port) is free." -ForegroundColor Yellow
@@ -29,10 +29,8 @@ try {
 }
 
 $lastTrackKey = ""
-$trackStartTime = [DateTime]::UtcNow
 $trackDurationMs = 240000
 $lrcLines = @()
-$isCurrentlyPlaying = $false
 $accumulatedElapsedMs = 0
 $lastTickTime = [DateTime]::UtcNow
 $syncOffsetMs = 0
@@ -109,19 +107,19 @@ try {
     while ($true) {
         $now = [DateTime]::UtcNow
         
-        # Check for keyboard adjustments
+        # Check for keyboard sync adjustments
         if ([Console]::KeyAvailable) {
             $key = [Console]::ReadKey($true).KeyChar
             if ($key -eq 'r' -or $key -eq 'R') {
                 $accumulatedElapsedMs = 0
                 $syncOffsetMs = 0
                 Write-Host "`n[Sync] Reset progress to 0:00" -ForegroundColor Magenta
-            } elseif ($key -eq '+') {
-                $syncOffsetMs += 1000
-                Write-Host "`n[Sync] Offset: +$($syncOffsetMs/1000)s" -ForegroundColor Magenta
-            } elseif ($key -eq '-') {
-                $syncOffsetMs -= 1000
-                Write-Host "`n[Sync] Offset: $($syncOffsetMs/1000)s" -ForegroundColor Magenta
+            } elseif ($key -eq '+' -or $key -eq 'f' -or $key -eq 'F') {
+                $syncOffsetMs += 5000
+                Write-Host "`n[Sync] Skipped +5s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
+            } elseif ($key -eq '-' -or $key -eq 'b' -or $key -eq 'B') {
+                $syncOffsetMs -= 5000
+                Write-Host "`n[Sync] Rewound -5s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
             }
         }
 
@@ -183,10 +181,11 @@ try {
                         $nextLyric = $lrcLines[$activeIdx + 1].text
                     }
                 } else {
-                    $activeLyric = "♪ Intro ♪"
-                    if ($lrcLines.Count -gt 0) {
-                        $nextLyric = $lrcLines[0].text
-                    }
+                    # Still in the intro section before vocals start
+                    $firstLyricMs = $lrcLines[0].timeMs
+                    $remSec = [Math]::Max(0, [int](($firstLyricMs - $effectiveTimeMs) / 1000))
+                    $activeLyric = "Intro (${remSec}s)"
+                    $nextLyric = $lrcLines[0].text
                 }
             }
 
@@ -203,12 +202,15 @@ try {
             $jsonStr = $payloadObj | ConvertTo-Json -Compress
             $serial.WriteLine("$jsonStr`n")
 
-            if ($activeLyric -ne "") {
-                $mins = [Math]::Floor($effectiveTimeMs / 60000)
-                $secs = [Math]::Floor(($effectiveTimeMs % 60000) / 1000)
-                $timeStr = "{0:D2}:{1:D2}" -f [int]$mins, [int]$secs
-                Write-Host -NoNewline "`r[$timeStr] > $activeLyric                                " -ForegroundColor Cyan
-            }
+            $mins = [Math]::Floor($effectiveTimeMs / 60000)
+            $secs = [Math]::Floor(($effectiveTimeMs % 60000) / 1000)
+            $timeStr = "{0:D2}:{1:D2}" -f [int]$mins, [int]$secs
+
+            $durMins = [Math]::Floor($trackDurationMs / 60000)
+            $durSecs = [Math]::Floor(($trackDurationMs % 60000) / 1000)
+            $durStr = "{0:D2}:{1:D2}" -f [int]$durMins, [int]$durSecs
+
+            Write-Host -NoNewline "`r[$timeStr / $durStr] > $activeLyric                                " -ForegroundColor Cyan
 
         } else {
             $lastTickTime = $now
@@ -219,7 +221,7 @@ try {
             }
         }
 
-        Start-Sleep -Milliseconds 400
+        Start-Sleep -Milliseconds 300
     }
 } finally {
     if ($serial -and $serial.IsOpen) {

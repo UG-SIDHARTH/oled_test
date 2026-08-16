@@ -87,10 +87,10 @@ void BluetoothManager::processMessage(String msg) {
             uint32_t newProgress = doc["progress"] | 0;
             bool isPlaying = doc.containsKey("playing") ? doc["playing"].as<bool>() : true;
 
-            if (activeLyric.length() > 0) {
+            if (doc.containsKey("activeLyric") || doc.containsKey("lyric")) {
                 _state.activeLyric = activeLyric;
             }
-            if (nextLyric.length() > 0) {
+            if (doc.containsKey("nextLyric")) {
                 _state.nextLyric = nextLyric;
             }
 
