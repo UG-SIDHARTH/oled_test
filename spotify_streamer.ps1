@@ -196,9 +196,17 @@ try {
                     if ($props -and $props.Title -ne "") {
                         $track = $props.Title.Trim()
                         $artist = $props.Artist.Trim()
-                        $currentPosMs = [int]($timeline.Position.TotalMilliseconds)
                         $durationMs = [int]($timeline.EndTime.TotalMilliseconds)
                         $isPlaying = ($playback.PlaybackStatus -eq [Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackStatus]::Playing)
+
+                        $posMs = $timeline.Position.TotalMilliseconds
+                        if ($isPlaying -and $timeline.LastUpdatedTime) {
+                            $elapsed = ([DateTimeOffset]::Now - $timeline.LastUpdatedTime).TotalMilliseconds
+                            if ($elapsed -ge 0 -and $elapsed -lt 600000) {
+                                $posMs += $elapsed
+                            }
+                        }
+                        $currentPosMs = [int]$posMs
                     }
                 }
             } catch {}
