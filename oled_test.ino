@@ -52,33 +52,18 @@ uint32_t lastFrameMs = 0;
 
 // Built-in Demo Song for Offline Demonstration
 #if DEMO_MODE
-const char* DEMO_TRACK_NAME = "Viva La Vida";
-const char* DEMO_ARTIST_NAME = "Coldplay";
-const uint32_t DEMO_DURATION_MS = 242000;
+const char* DEMO_TRACK_NAME = "Pixel Dance";
+const char* DEMO_ARTIST_NAME = "ESP32 Beat";
+const uint32_t DEMO_DURATION_MS = 30000;
 const char* DEMO_LRC = 
-    "[00:01.00]♪ Instrumental Intro ♪\n"
-    "[00:13.50]I used to rule the world\n"
-    "[00:17.20]Seas would rise when I gave the word\n"
-    "[00:21.00]Now in the morning I sleep alone\n"
-    "[00:25.30]Sweep the streets I used to own\n"
-    "[00:29.50]I used to roll the dice\n"
-    "[00:33.20]Feel the fear in my enemy's eyes\n"
-    "[00:37.00]Listen as the crowd would sing\n"
-    "[00:41.00]Now the old king is dead! Long live the king!\n"
-    "[00:45.00]One minute I held the key\n"
-    "[00:49.00]Next the walls were closed on me\n"
-    "[00:53.00]And I discovered that my castles stand\n"
-    "[00:57.00]Upon pillars of salt and pillars of sand\n"
-    "[01:01.00]I hear Jerusalem bells a-ringing\n"
-    "[01:05.00]Roman Cavalry choirs are singing\n"
-    "[01:09.00]Be my mirror, my sword and shield\n"
-    "[01:13.00]My missionaries in a foreign field\n"
-    "[01:17.00]For some reason I can't explain\n"
-    "[01:21.00]Once you'd gone there was never\n"
-    "[01:23.00]Never an honest word\n"
-    "[01:25.00]And that was when I ruled the world\n"
-    "[01:30.00]♪ Violin Orchestral Solo ♪\n";
-
+    "[00:01.00]Watch the little pixel dance\n"
+    "[00:04.00]Moving to the byte beat!\n"
+    "[00:07.00]ESP32 takes the lead\n"
+    "[00:10.00]Feel the rhythm, feel the heat!\n"
+    "[00:14.00]Watch the little pixel dance\n"
+    "[00:18.00]Moving to the byte beat!\n"
+    "[00:22.00]Feel the rhythm, feel the heat!\n"
+    "[00:26.00]♪ Byte Beat Solo ♪\n";
 uint32_t demoStartTimeMs = 0;
 #endif
 
