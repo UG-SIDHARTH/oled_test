@@ -122,28 +122,38 @@ try {
     while ($true) {
         $now = [DateTime]::UtcNow
         
-        # Check for keyboard sync adjustments
+        # Check for keyboard sync adjustments (Method 2: Instant Jump)
         if ([Console]::KeyAvailable) {
-            $key = [Console]::ReadKey($true).KeyChar
-            if ($key -eq 'r' -or $key -eq 'R' -or $key -eq '0') {
+            $keyInfo = [Console]::ReadKey($true)
+            $keyChar = $keyInfo.KeyChar
+            $key = $keyInfo.Key
+
+            if ($key -eq [ConsoleKey]::R -or $keyChar -eq '0' -or $key -eq [ConsoleKey]::Home) {
                 $accumulatedElapsedMs = 0
                 $syncOffsetMs = 0
                 Write-Host "`n[Sync] Reset progress to 0:00" -ForegroundColor Magenta
-            } elseif ($key -ge '1' -and $key -le '9') {
-                $minNum = [int]("$key")
+            } elseif ($keyChar -ge '1' -and $keyChar -le '9') {
+                # Press '1' -> 1:00, '2' -> 2:00, '3' -> 3:00
+                $minNum = [int]("$keyChar")
                 $accumulatedElapsedMs = ($minNum * 60000)
                 $syncOffsetMs = 0
                 Write-Host "`n[Sync] Jumped to $($minNum):00" -ForegroundColor Magenta
-            } elseif ($key -eq '+' -or $key -eq 'f' -or $key -eq 'F') {
+            } elseif ($key -eq [ConsoleKey]::RightArrow -or $keyChar -eq 'f' -or $keyChar -eq 'F' -or $keyChar -eq '+') {
                 $syncOffsetMs += 5000
-                Write-Host "`n[Sync] Skipped +5s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($key -eq '-' -or $key -eq 'b' -or $key -eq 'B') {
+                Write-Host "`n[Sync] Fast-Forward +5s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
+            } elseif ($key -eq [ConsoleKey]::UpArrow) {
+                $syncOffsetMs += 15000
+                Write-Host "`n[Sync] Big Jump +15s (Offset: +$($syncOffsetMs/1000)s)" -ForegroundColor Magenta
+            } elseif ($key -eq [ConsoleKey]::LeftArrow -or $keyChar -eq 'b' -or $keyChar -eq 'B' -or $keyChar -eq '-') {
                 $syncOffsetMs -= 5000
                 Write-Host "`n[Sync] Rewound -5s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
-            } elseif ($key -eq ']') {
+            } elseif ($key -eq [ConsoleKey]::DownArrow) {
+                $syncOffsetMs -= 15000
+                Write-Host "`n[Sync] Big Rewind -15s (Offset: $($syncOffsetMs/1000)s)" -ForegroundColor Magenta
+            } elseif ($keyChar -eq ']') {
                 $syncOffsetMs += 1000
                 Write-Host "`n[Sync] +1s" -ForegroundColor Magenta
-            } elseif ($key -eq '[') {
+            } elseif ($keyChar -eq '[') {
                 $syncOffsetMs -= 1000
                 Write-Host "`n[Sync] -1s" -ForegroundColor Magenta
             }
