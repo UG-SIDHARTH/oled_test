@@ -12,16 +12,16 @@ param (
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " 🎵 ESP32 Spotify Live Streamer (Zero WiFi / 100% Offline)" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " Target Port: $Port at $BaudRate baud" -ForegroundColor Yellow
+Write-Host " Target Port: $($Port) at $($BaudRate) baud" -ForegroundColor Yellow
 
 try {
     $serial = New-Object System.IO.Ports.SerialPort $Port, $BaudRate, None, 8, One
     $serial.Open()
-    Write-Host "[Connected] Successfully opened $Port!" -ForegroundColor Green
+    Write-Host "[Connected] Successfully opened $($Port)!" -ForegroundColor Green
     Write-Host "[Running] Listening to Spotify on Windows... Play any song!`n" -ForegroundColor Cyan
 } catch {
-    Write-Host "[Error] Could not open $Port: $_" -ForegroundColor Red
-    Write-Host "Please ensure Arduino Serial Monitor is CLOSED so $Port is free." -ForegroundColor Yellow
+    Write-Host "[Error] Could not open $($Port). Details: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "Please ensure Arduino Serial Monitor is CLOSED so $($Port) is free." -ForegroundColor Yellow
     exit 1
 }
 
@@ -52,8 +52,8 @@ try {
         Start-Sleep -Milliseconds 1000
     }
 } finally {
-    if ($serial.IsOpen) {
+    if ($serial -and $serial.IsOpen) {
         $serial.Close()
-        Write-Host "`n[Closed] Port $Port closed." -ForegroundColor Cyan
+        Write-Host "`n[Closed] Port $($Port) closed." -ForegroundColor Cyan
     }
 }
