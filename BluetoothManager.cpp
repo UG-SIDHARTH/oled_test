@@ -21,9 +21,6 @@ BluetoothManager::BluetoothManager() {
 bool BluetoothManager::begin(const char* deviceName) {
     Serial.printf("[Bluetooth] Initializing Bluetooth A2DP & AVRCP (%s)...\n", deviceName);
 
-    // Release BLE memory if unused to save RAM for Classic BT + WiFi
-    esp_bt_controller_mem_release(ESP_BT_MODE_BLE);
-
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     esp_err_t err = esp_bt_controller_init(&bt_cfg);
     if (err != ESP_OK) {
@@ -49,8 +46,26 @@ bool BluetoothManager::begin(const char* deviceName) {
         return false;
     }
 
-    // Set device name and discoverable scan mode
+    // Set device name
     esp_bt_dev_set_device_name(deviceName);
+
+    // Register GAP callback for pairing & authentication
+    esp_bt_gap_register_callback(BluetoothManager::handleGAPEvent);
+
+    // Set Class of Device (CoD) as Audio/Video Loudspeaker / Speaker
+    // This is mandatory for phones (iOS/Android) and PCs to list the device in Bluetooth audio scans!
+    esp_bt_cod_t cod;
+    cod.major = ESP_BT_COD_MAJOR_DEV_AV;
+    cod.minor = ESP_BT_COD_MINOR_DEV_AV_LOUDSPEAKER;
+    cod.service = ESP_BT_COD_SRV_AUDIO | ESP_BT_COD_SRV_RENDERING;
+    esp_bt_gap_set_cod(cod, ESP_BT_INIT_COD);
+
+    // Set Simple Secure Pairing (SSP) to "Just Works" (no PIN required)
+    esp_bt_sp_param_t param_type = ESP_BT_SP_IOCAP_MODE;
+    esp_bt_io_cap_t iocap = ESP_BT_IO_CAP_NONE;
+    esp_bt_gap_set_security_param(param_type, &iocap, sizeof(uint8_t));
+
+    // Enable discoverability and connectability
     esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
 
     // Initialize A2DP Sink
@@ -65,13 +80,45 @@ bool BluetoothManager::begin(const char* deviceName) {
     // Initialize AVRCP Target (to support standard remote volume/control responses)
     esp_avrc_tg_init();
 
-    Serial.println("[Bluetooth] Ready! Pair your phone or PC to '" + String(deviceName) + "'");
+    Serial.println("[Bluetooth] Broadcasting! Search for '" + String(deviceName) + "' on your phone/PC.");
     return true;
 }
 
+void BluetoothManager::handleGAPEvent(esp_bt_gap_cb_event_t event, esp_bt_gap_cb_param_t *param) {
+    switch (event) {
+        case ESP_BT_GAP_AUTH_CMPL_EVT: {
+            if (param->auth_cmpl.stat == ESP_BT_STATUS_SUCCESS) {
+                Serial.printf("[Bluetooth GAP] Authenticated with: %s\n", param->auth_cmpl.device_name);
+            } else {
+                Serial.printf("[Bluetooth GAP] Authentication failed, status: %d\n", param->auth_cmpl.stat);
+            }
+            break;
+        }
+
+        case ESP_BT_GAP_CFM_REQ_EVT: {
+            // Confirm pairing without user confirmation (Just Works SSP)
+            Serial.println("[Bluetooth GAP] Auto-confirming pairing request...");
+            esp_bt_gap_ssp_confirm_reply(param->cfm_req.bda, true);
+            break;
+        }
+
+        case ESP_BT_GAP_KEY_NOTIF_EVT: {
+            Serial.printf("[Bluetooth GAP] Passkey: %d\n", param->key_notif.passkey);
+            break;
+        }
+
+        case ESP_BT_GAP_KEY_REQ_EVT: {
+            Serial.println("[Bluetooth GAP] Passkey requested");
+            break;
+        }
+
+        default:
+            break;
+    }
+}
+
 void BluetoothManager::handleA2DData(const uint8_t *data, uint32_t len) {
-    // Audio stream data received - we don't output to DAC to keep playback on phone/speaker,
-    // or audio can be forwarded to I2S if desired.
+    // Audio stream data received
 }
 
 void BluetoothManager::handleA2DEvent(esp_a2d_cb_event_t event, esp_a2d_cb_param_t *param) {
@@ -81,22 +128,27 @@ void BluetoothManager::handleA2DEvent(esp_a2d_cb_event_t event, esp_a2d_cb_param
         case ESP_A2D_CONNECTION_STATE_EVT: {
             uint8_t state = param->conn_stat.state;
             if (state == ESP_A2D_CONNECTION_STATE_CONNECTED) {
-                Serial.println("[Bluetooth] Device Connected!");
+                Serial.println("\n[Bluetooth] >>> Phone/PC Connected! <<<");
                 portENTER_CRITICAL(&_instance->_mux);
                 _instance->_state.connected = true;
                 portEXIT_CRITICAL(&_instance->_mux);
 
-                // Request initial metadata
+                // Request initial metadata & register notifications
                 esp_avrc_ct_send_metadata_cmd(0, ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);
                 esp_avrc_ct_send_register_notification_cmd(0, ESP_AVRC_RN_TRACK_CHANGE, 0);
                 esp_avrc_ct_send_register_notification_cmd(0, ESP_AVRC_RN_PLAY_STATUS_CHANGE, 0);
                 esp_avrc_ct_send_register_notification_cmd(0, ESP_AVRC_RN_PLAY_POS_CHANGED, 1);
             } else if (state == ESP_A2D_CONNECTION_STATE_DISCONNECTED) {
-                Serial.println("[Bluetooth] Device Disconnected!");
+                Serial.println("\n[Bluetooth] Device Disconnected!");
                 portENTER_CRITICAL(&_instance->_mux);
                 _instance->_state.connected = false;
                 _instance->_state.isPlaying = false;
+                _instance->_state.trackName = "";
+                _instance->_state.artistName = "";
                 portEXIT_CRITICAL(&_instance->_mux);
+
+                // Re-enable discoverable mode for new connections
+                esp_bt_gap_set_scan_mode(ESP_BT_CONNECTABLE, ESP_BT_GENERAL_DISCOVERABLE);
             }
             break;
         }
@@ -112,7 +164,6 @@ void BluetoothManager::handleA2DEvent(esp_a2d_cb_event_t event, esp_a2d_cb_param
             }
             portEXIT_CRITICAL(&_instance->_mux);
 
-            // Re-request metadata when playback starts
             if (state == ESP_A2D_AUDIO_STATE_STARTED) {
                 esp_avrc_ct_send_metadata_cmd(0, ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);
             }
@@ -143,16 +194,16 @@ void BluetoothManager::handleAVRCEvent(esp_avrc_ct_cb_event_t event, esp_avrc_ct
 
                 portENTER_CRITICAL(&_instance->_mux);
                 if (attr == ESP_AVRC_MD_ATTR_TITLE) {
-                    if (val != _instance->_state.trackName) {
+                    if (val.length() > 0 && val != _instance->_state.trackName) {
                         _instance->_state.trackName = val;
                         _instance->_state.newTrackAvailable = true;
                         _instance->_state.progressMs = 0;
                         _instance->_state.lastProgressUpdateMs = millis();
-                        Serial.printf("[Bluetooth] Title: %s\n", val.c_str());
+                        Serial.printf("[Bluetooth Song] Title: %s\n", val.c_str());
                     }
                 } else if (attr == ESP_AVRC_MD_ATTR_ARTIST) {
                     _instance->_state.artistName = val;
-                    Serial.printf("[Bluetooth] Artist: %s\n", val.c_str());
+                    Serial.printf("[Bluetooth Artist] %s\n", val.c_str());
                 } else if (attr == ESP_AVRC_MD_ATTR_ALBUM) {
                     _instance->_state.albumName = val;
                 } else if (attr == ESP_AVRC_MD_ATTR_PLAYING_TIME) {
@@ -165,7 +216,7 @@ void BluetoothManager::handleAVRCEvent(esp_avrc_ct_cb_event_t event, esp_avrc_ct
 
         case ESP_AVRC_CT_CHANGE_NOTIFY_EVT:
         case ESP_AVRC_CT_REMOTE_FEATURES_EVT: {
-            // Request metadata and status notifications
+            // Request metadata on track change
             esp_avrc_ct_send_metadata_cmd(0, ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);
             esp_avrc_ct_send_register_notification_cmd(0, ESP_AVRC_RN_TRACK_CHANGE, 0);
             esp_avrc_ct_send_register_notification_cmd(0, ESP_AVRC_RN_PLAY_STATUS_CHANGE, 0);
@@ -182,7 +233,6 @@ void BluetoothManager::update() {
     uint32_t now = millis();
     if (_state.connected && (now - _lastStatusPollMs >= 3000 || _lastStatusPollMs == 0)) {
         _lastStatusPollMs = now;
-        // Poll metadata in case of silent track change
         esp_avrc_ct_send_metadata_cmd(0, ESP_AVRC_MD_ATTR_TITLE | ESP_AVRC_MD_ATTR_ARTIST | ESP_AVRC_MD_ATTR_ALBUM | ESP_AVRC_MD_ATTR_PLAYING_TIME);
     }
 }
