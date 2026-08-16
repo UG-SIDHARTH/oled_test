@@ -21,6 +21,17 @@ BluetoothManager::BluetoothManager() {
 bool BluetoothManager::begin(const char* deviceName) {
     Serial.printf("[Bluetooth] Initializing Bluetooth A2DP & AVRCP (%s)...\n", deviceName);
 
+    // Initialize NVS flash memory (mandatory for Bluetooth key storage on ESP32)
+    esp_err_t nvs_err = nvs_flash_init();
+    if (nvs_err == ESP_ERR_NVS_NO_FREE_PAGES || nvs_err == ESP_ERR_NVS_NEW_VERSION_FOUND) {
+        nvs_flash_erase();
+        nvs_err = nvs_flash_init();
+    }
+    if (nvs_err != ESP_OK) {
+        Serial.printf("[Bluetooth] NVS flash init failed: %s\n", esp_err_to_name(nvs_err));
+        return false;
+    }
+
     esp_bt_controller_config_t bt_cfg = BT_CONTROLLER_INIT_CONFIG_DEFAULT();
     esp_err_t err = esp_bt_controller_init(&bt_cfg);
     if (err != ESP_OK) {
@@ -46,8 +57,9 @@ bool BluetoothManager::begin(const char* deviceName) {
         return false;
     }
 
-    // Set device name
+    // Set device name on both DEV and GAP layers
     esp_bt_dev_set_device_name(deviceName);
+    esp_bt_gap_set_device_name(deviceName);
 
     // Register GAP callback for pairing & authentication
     esp_bt_gap_register_callback(BluetoothManager::handleGAPEvent);

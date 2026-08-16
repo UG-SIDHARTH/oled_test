@@ -2,6 +2,7 @@
 #define BLUETOOTH_MANAGER_H
 
 #include <Arduino.h>
+#include "nvs_flash.h"
 #include "esp_bt.h"
 #include "esp_bt_main.h"
 #include "esp_bt_device.h"
