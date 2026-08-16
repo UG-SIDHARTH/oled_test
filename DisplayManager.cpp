@@ -287,6 +287,9 @@ void DisplayManager::drawPixelDancingStickman(int centerX, int centerY, uint8_t 
             _u8g2.drawLine(centerX, bodyBottomY, centerX - 7, bodyBottomY + 11);
             _u8g2.drawLine(centerX + 1, bodyBottomY, centerX + 7, bodyBottomY + 11);
             break;
+    }
+}
+
 void DisplayManager::drawMichaelJackson(int centerX, int centerY, uint8_t animStep, bool isPlaying) {
     // 8-pose iconic Michael Jackson dance choreography
     // Cycles smoothly every 200ms
