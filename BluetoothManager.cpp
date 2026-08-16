@@ -27,23 +27,18 @@ bool BluetoothManager::begin(const char* deviceName) {
 }
 
 void BluetoothManager::update() {
-    // Check connection status
-    bool hasClient = _serialBT.hasClient();
-    if (hasClient != _state.connected) {
-        _state.connected = hasClient;
-        if (hasClient) {
-            Serial.println("\n[Bluetooth] >>> Client Connected! <<<");
-            _serialBT.println("CONNECTED: ESP32 Spotify OLED Player Ready");
-        } else {
-            Serial.println("\n[Bluetooth] Client Disconnected.");
-        }
-    }
+    // Check connection status (active Bluetooth client or recent USB/Bluetooth data)
+    bool hasBTClient = _serialBT.hasClient();
+    bool hasRecentMsg = (_lastMessageTimeMs > 0 && (millis() - _lastMessageTimeMs < 30000));
+    _state.connected = hasBTClient || hasRecentMsg || (_state.trackName.length() > 0 && _state.isPlaying);
 
     // Read incoming characters from Bluetooth Serial
     while (_serialBT.available()) {
         char c = (char)_serialBT.read();
         if (c == '\n' || c == '\r') {
             if (_incomingLine.length() > 0) {
+                _lastMessageTimeMs = millis();
+                _state.connected = true;
                 processMessage(_incomingLine);
                 _incomingLine = "";
             }
@@ -59,7 +54,8 @@ void BluetoothManager::update() {
         char c = (char)Serial.read();
         if (c == '\n' || c == '\r') {
             if (_incomingLine.length() > 0) {
-                _state.connected = true; // Mark connected via USB
+                _lastMessageTimeMs = millis();
+                _state.connected = true;
                 processMessage(_incomingLine);
                 _incomingLine = "";
             }

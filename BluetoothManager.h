@@ -47,6 +47,7 @@ private:
     BluetoothSerial _serialBT;
     BTPlaybackState _state;
     String _incomingLine;
+    uint32_t _lastMessageTimeMs = 0;
 
     void processMessage(String msg);
 };

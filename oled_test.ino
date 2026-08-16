@@ -138,33 +138,19 @@ void loop() {
     // ------------------------------------------------------------------------
     btManager.update();
 
-    if (btManager.isConnected()) {
-        if (btManager.hasNewTrack()) {
-            String title = btManager.getTrackName();
-            String artist = btManager.getArtistName();
-            String album = btManager.getAlbumName();
-            uint32_t duration = btManager.getDurationMs();
-
-            if (title.length() > 0 && title != activeTrackTitle) {
-                activeTrackTitle = title;
-                Serial.printf("\n[Track Changed] Now Playing: %s by %s\n", title.c_str(), artist.c_str());
-
-                currentTrack.hasData = true;
-                currentTrack.trackName = title;
-                currentTrack.artistName = artist;
-                currentTrack.albumName = album;
-                currentTrack.durationMs = duration;
-            }
-            btManager.clearNewTrackFlag();
-        }
-
+    String trackName = btManager.getTrackName();
+    if (trackName.length() > 0) {
+        currentTrack.hasData = true;
+        currentTrack.trackName = trackName;
+        currentTrack.artistName = btManager.getArtistName();
+        currentTrack.albumName = btManager.getAlbumName();
+        currentTrack.durationMs = btManager.getDurationMs();
         currentTrack.isPlaying = btManager.isPlaying();
         currentTrack.progressMs = btManager.getProgressMs();
-        currentTrack.durationMs = btManager.getDurationMs();
-        if (btManager.getTrackName().length() > 0) {
-            currentTrack.hasData = true;
-            currentTrack.trackName = btManager.getTrackName();
-            currentTrack.artistName = btManager.getArtistName();
+
+        if (trackName != activeTrackTitle) {
+            activeTrackTitle = trackName;
+            Serial.printf("\n[Now Playing] %s by %s\n", trackName.c_str(), currentTrack.artistName.c_str());
         }
     } else {
         currentTrack.hasData = false;
