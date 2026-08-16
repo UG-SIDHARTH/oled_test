@@ -43,6 +43,7 @@ try {
 $lastTrackKey = ""
 $trackDurationMs = 180000
 $lrcLines = @()
+$syncOffsetMs = 0
 
 function Clean-Title ($title) {
     $cleaned = $title -replace '\s*[\(\[](feat|ft|with|remix|remastered|live|official|deluxe|bonus|edit).*?[\)\]]', ''
@@ -117,6 +118,30 @@ try {
         $durationMs = 0
         $isPlaying = $false
 
+        # Live Keyboard Micro-Calibration
+        if ([Console]::KeyAvailable) {
+            $keyInfo = [Console]::ReadKey($true)
+            $keyChar = $keyInfo.KeyChar
+            $key = $keyInfo.Key
+
+            if ($keyChar -eq ']' -or $key -eq [ConsoleKey]::RightArrow) {
+                $syncOffsetMs += 100
+                Write-Host "`n[Calibrate] Lyrics +0.1s (Total: $([math]::Round($syncOffsetMs/1000, 2))s)" -ForegroundColor Magenta
+            } elseif ($keyChar -eq '[' -or $key -eq [ConsoleKey]::LeftArrow) {
+                $syncOffsetMs -= 100
+                Write-Host "`n[Calibrate] Lyrics -0.1s (Total: $([math]::Round($syncOffsetMs/1000, 2))s)" -ForegroundColor Magenta
+            } elseif ($keyChar -eq '+' -or $keyChar -eq '}') {
+                $syncOffsetMs += 500
+                Write-Host "`n[Calibrate] Lyrics +0.5s (Total: $([math]::Round($syncOffsetMs/1000, 2))s)" -ForegroundColor Magenta
+            } elseif ($keyChar -eq '-' -or $keyChar -eq '{') {
+                $syncOffsetMs -= 500
+                Write-Host "`n[Calibrate] Lyrics -0.5s (Total: $([math]::Round($syncOffsetMs/1000, 2))s)" -ForegroundColor Magenta
+            } elseif ($keyChar -eq '0' -or $key -eq [ConsoleKey]::R) {
+                $syncOffsetMs = 0
+                Write-Host "`n[Calibrate] Reset Offset to 0.0s" -ForegroundColor Magenta
+            }
+        }
+
         # 1. Query Windows Media Session (GSMTC) for 100% exact playback state
         if ($mediaManager) {
             try {
@@ -180,13 +205,15 @@ try {
                 $trackDurationMs = $durationMs
             }
 
-            # Find active and next lyric for exact current playback position
+            $effectivePosMs = [Math]::Max(0, [int]($currentPosMs + $syncOffsetMs))
+
+            # Find active and next lyric for exact calibrated playback position
             $activeLyric = ""
             $nextLyric = ""
             if ($lrcLines.Count -gt 0) {
                 $activeIdx = -1
                 for ($i = 0; $i -lt $lrcLines.Count; $i++) {
-                    if ($lrcLines[$i].timeMs -le $currentPosMs) {
+                    if ($lrcLines[$i].timeMs -le $effectivePosMs) {
                         $activeIdx = $i
                     } else {
                         break
@@ -200,7 +227,7 @@ try {
                     }
                 } else {
                     $firstLyricMs = $lrcLines[0].timeMs
-                    $remSec = [Math]::Max(0, [int](($firstLyricMs - $currentPosMs) / 1000))
+                    $remSec = [Math]::Max(0, [int](($firstLyricMs - $effectivePosMs) / 1000))
                     $activeLyric = "Intro (${remSec}s)"
                     $nextLyric = $lrcLines[0].text
                 }
@@ -213,7 +240,7 @@ try {
                 activeLyric = $activeLyric
                 nextLyric = $nextLyric
                 duration = $trackDurationMs
-                progress = $currentPosMs
+                progress = $effectivePosMs
                 playing = $isPlaying
             }
             $jsonStr = $payloadObj | ConvertTo-Json -Compress
@@ -227,7 +254,8 @@ try {
             $durSecs = [Math]::Floor(($trackDurationMs % 60000) / 1000)
             $durStr = "{0:D2}:{1:D2}" -f [int]$durMins, [int]$durSecs
 
-            Write-Host -NoNewline "`r[$timeStr / $durStr] > $activeLyric                                " -ForegroundColor Cyan
+            $offsetSecStr = $([math]::Round($syncOffsetMs/1000, 1))
+            Write-Host -NoNewline "`r[$timeStr / $durStr | Offset: ${offsetSecStr}s] > $activeLyric                                " -ForegroundColor Cyan
 
         } else {
             if ($lastTrackKey -ne "") {
