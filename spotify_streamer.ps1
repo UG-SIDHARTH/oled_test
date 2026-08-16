@@ -20,7 +20,7 @@ try {
     $serial = New-Object System.IO.Ports.SerialPort $Port, $BaudRate, None, 8, One
     $serial.Open()
     Write-Host "[Connected] Successfully opened $($Port)!" -ForegroundColor Green
-    Write-Host "[Running] Listening to Spotify... Play any song on Spotify!`n" -ForegroundColor Cyan
+    Write-Host "[Running] Listening to Spotify... Hit PLAY on any song!`n" -ForegroundColor Cyan
     Write-Host " [Sync Keys] '1'-'9': Jump to 1:00, 2:00 | 'F'/'+': +5s | 'B'/'-': -5s | 'R': 0:00`n" -ForegroundColor DarkGray
 } catch {
     Write-Host "[Error] Could not open $($Port). Details: $($_.Exception.Message)" -ForegroundColor Red
@@ -34,6 +34,7 @@ $lrcLines = @()
 $accumulatedElapsedMs = 0
 $lastTickTime = [DateTime]::UtcNow
 $syncOffsetMs = 0
+$waitingCounter = 0
 
 function Clean-Title ($title) {
     $cleaned = $title -replace '\s*[\(\[](feat|ft|with|remix|remastered|live|official|deluxe|bonus|edit).*?[\)\]]', ''
@@ -129,7 +130,6 @@ try {
                 $syncOffsetMs = 0
                 Write-Host "`n[Sync] Reset progress to 0:00" -ForegroundColor Magenta
             } elseif ($key -ge '1' -and $key -le '9') {
-                # Press '1' -> 1:00, '2' -> 2:00, etc.
                 $minNum = [int]("$key")
                 $accumulatedElapsedMs = ($minNum * 60000)
                 $syncOffsetMs = 0
@@ -149,15 +149,33 @@ try {
             }
         }
 
-        $spotify = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" -and $_.MainWindowTitle -ne "Spotify" -and $_.MainWindowTitle -ne "Spotify Premium" -and $_.MainWindowTitle -ne "Spotify Free" } | Select-Object -First 1
+        # 1. Search for active Spotify desktop window
+        $activeWindowText = ""
+        $spotifyProcs = Get-Process Spotify -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -ne "" }
+        foreach ($p in $spotifyProcs) {
+            $t = $p.MainWindowTitle.Trim()
+            if ($t -ne "" -and $t -ne "Spotify" -and $t -ne "Spotify Premium" -and $t -ne "Spotify Free") {
+                $activeWindowText = $t
+                break
+            }
+        }
 
-        if ($spotify) {
-            $rawTitle = $spotify.MainWindowTitle.Trim()
+        # 2. Search browser windows if Spotify web is used
+        if ($activeWindowText -eq "") {
+            $webProcs = Get-Process chrome, msedge, brave, firefox -ErrorAction SilentlyContinue | Where-Object { $_.MainWindowTitle -match 'Spotify' -or $_.MainWindowTitle -match ' - ' }
+            foreach ($p in $webProcs) {
+                if ($p.MainWindowTitle -match '^(.*?)\s+-\s+(.*?)\s*[-|•]\s*Spotify') {
+                    $activeWindowText = "$($matches[1]) - $($matches[2])"
+                    break
+                }
+            }
+        }
 
+        if ($activeWindowText -ne "") {
             # Parse "Artist - Track" (Standard Spotify format)
             $artist = ""
-            $track = $rawTitle
-            if ($rawTitle -match '^(.*?)\s+-\s+(.*)$') {
+            $track = $activeWindowText
+            if ($activeWindowText -match '^(.*?)\s+-\s+(.*)$') {
                 $artist = $matches[1].Trim()
                 $track = $matches[2].Trim()
             }
@@ -212,7 +230,6 @@ try {
                         $nextLyric = $lrcLines[$activeIdx + 1].text
                     }
                 } else {
-                    # Still in the intro section before vocals start
                     $firstLyricMs = $lrcLines[0].timeMs
                     $remSec = [Math]::Max(0, [int](($firstLyricMs - $effectiveTimeMs) / 1000))
                     $activeLyric = "Intro (${remSec}s)"
@@ -249,10 +266,15 @@ try {
                 $lastTrackKey = ""
                 Write-Host "`n[Paused ⏸] Spotify paused" -ForegroundColor Yellow
                 $serial.WriteLine("PAUSE`n")
+            } else {
+                $waitingCounter++
+                if ($waitingCounter % 15 -eq 0) {
+                    Write-Host -NoNewline "`r[Waiting] Spotify is paused or idle... Hit PLAY on any song in Spotify!   " -ForegroundColor DarkGray
+                }
             }
         }
 
-        Start-Sleep -Milliseconds 300
+        Start-Sleep -Milliseconds 250
     }
 } finally {
     if ($serial -and $serial.IsOpen) {
