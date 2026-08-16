@@ -78,16 +78,21 @@ const char* DEMO_LRC =
 uint32_t demoStartTimeMs = 0;
 #endif
 
+uint32_t lastWiFiRetryMs = 0;
+
 void connectWiFi() {
-    Serial.printf("[WiFi] Connecting to %s", WIFI_SSID);
+    Serial.printf("\n[WiFi] Connecting to '%s'...\n", WIFI_SSID);
     
+    WiFi.disconnect(true);
+    delay(200);
     WiFi.mode(WIFI_STA);
+    WiFi.setAutoReconnect(true);
     WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
 
     int attempts = 0;
-    while (WiFi.status() != WL_CONNECTED && attempts < 25) {
+    while (WiFi.status() != WL_CONNECTED && attempts < 35) {
         display.renderConnectingScreen("Connecting WiFi...", WIFI_SSID, attempts);
-        delay(400);
+        delay(300);
         Serial.print(".");
         attempts++;
     }
@@ -96,11 +101,11 @@ void connectWiFi() {
         Serial.println("\n[WiFi] Connected!");
         Serial.printf("[WiFi] IP Address: %s\n", WiFi.localIP().toString().c_str());
         display.renderConnectingScreen("WiFi Connected!", WiFi.localIP().toString(), 0);
-        delay(1000);
+        delay(800);
     } else {
-        Serial.println("\n[WiFi] Connection Timeout - Retrying...");
-        display.showStatusMessage("WiFi Reconnecting", "Checking network...", "");
-        delay(1000);
+        Serial.printf("\n[WiFi] Status: %d. Waiting for network...\n", WiFi.status());
+        display.showStatusMessage("WiFi Connecting...", "Check Hotspot/Pass", "");
+        delay(800);
     }
 }
 
@@ -171,7 +176,10 @@ void loop() {
     // 2. LAST.FM SPOTIFY AUTO-SYNC (Direct from official Spotify App)
     // ------------------------------------------------------------------------
     if (WiFi.status() != WL_CONNECTED) {
-        connectWiFi();
+        if (currentMs - lastWiFiRetryMs >= 8000 || lastWiFiRetryMs == 0) {
+            lastWiFiRetryMs = currentMs;
+            connectWiFi();
+        }
         return;
     }
 
