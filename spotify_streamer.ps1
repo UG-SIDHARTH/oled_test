@@ -12,9 +12,11 @@ param (
 )
 
 [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host " 🎵 ESP32 Spotify Live Streamer (100% AUTO-CONFIGURED)" -ForegroundColor Green
+Write-Host " 🎵 ESP32 Live Music Streamer (100% AUTO-CONFIGURED)" -ForegroundColor Green
 Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. AUTO-DETECT ESP32 COM PORT if not specified or set to AUTO
